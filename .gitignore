@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+data/_betas_raw.xls
+.venv/

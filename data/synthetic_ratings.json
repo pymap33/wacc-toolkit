@@ -1,0 +1,16 @@
+[
+  {"min_icr": -999.0, "max_icr": 0.20, "rating": "D",   "spread": 0.1500},
+  {"min_icr": 0.20,   "max_icr": 0.65, "rating": "C",   "spread": 0.1000},
+  {"min_icr": 0.65,   "max_icr": 0.80, "rating": "CC",  "spread": 0.0800},
+  {"min_icr": 0.80,   "max_icr": 1.25, "rating": "CCC", "spread": 0.0650},
+  {"min_icr": 1.25,   "max_icr": 1.50, "rating": "B-",  "spread": 0.0500},
+  {"min_icr": 1.50,   "max_icr": 1.75, "rating": "B",   "spread": 0.0425},
+  {"min_icr": 1.75,   "max_icr": 2.00, "rating": "B+",  "spread": 0.0350},
+  {"min_icr": 2.00,   "max_icr": 2.50, "rating": "BB",  "spread": 0.0275},
+  {"min_icr": 2.50,   "max_icr": 3.00, "rating": "BBB", "spread": 0.0200},
+  {"min_icr": 3.00,   "max_icr": 4.25, "rating": "A-",  "spread": 0.0150},
+  {"min_icr": 4.25,   "max_icr": 5.50, "rating": "A",   "spread": 0.0125},
+  {"min_icr": 5.50,   "max_icr": 6.50, "rating": "A+",  "spread": 0.0100},
+  {"min_icr": 6.50,   "max_icr": 8.50, "rating": "AA",  "spread": 0.0080},
+  {"min_icr": 8.50,   "max_icr": 999.0,"rating": "AAA", "spread": 0.0060}
+]

@@ -1,0 +1,13 @@
+{
+  "_source": "Placeholder sample values, structured like Damodaran's published industry beta dataset (https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html). Replace by running scripts/update_data.py, which downloads and normalizes the live file. Do not treat these numbers as current.",
+  "_as_of": null,
+  "industries": {
+    "Semiconductor": {"unlevered_beta": 1.35, "sample_size": 68},
+    "Software (System & Application)": {"unlevered_beta": 1.20, "sample_size": 410},
+    "Retail (General)": {"unlevered_beta": 0.85, "sample_size": 22},
+    "Healthcare Products": {"unlevered_beta": 1.05, "sample_size": 190},
+    "Railroads": {"unlevered_beta": 0.70, "sample_size": 7},
+    "Aerospace/Defense": {"unlevered_beta": 0.95, "sample_size": 60},
+    "Electronics (General)": {"unlevered_beta": 1.10, "sample_size": 130}
+  }
+}

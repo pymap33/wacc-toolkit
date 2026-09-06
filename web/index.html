@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WACC Toolkit</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f5;
+    --fg: #1a1a1a;
+    --card: #ffffff;
+    --border: #d9d9d4;
+    --accent: #2f6f4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15161a; --fg: #e8e8e6; --card: #1e2024; --border: #33353a; --accent: #6fbf94; }
+  }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+  main { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.sub { color: #888; margin-top: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+  label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; }
+  input, select { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; margin-bottom: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  button { background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #result { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: 0.5rem; }
+  td, th { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  #status { font-size: 0.8rem; color: #888; }
+</style>
+</head>
+<body>
+<main>
+  <h1>WACC Toolkit</h1>
+  <p class="sub">Bottom-up beta + synthetic-rating cost of debt, computed entirely in your browser via Pyodide. No data leaves this page.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>Risk-free rate (10yr, decimal)</label>
+        <input id="rf" type="number" step="0.001" value="0.04" />
+        <label>Equity risk premium (decimal)</label>
+        <input id="erp" type="number" step="0.001" value="0.05" />
+        <label>Industry unlevered beta</label>
+        <input id="beta" type="number" step="0.01" value="1.10" />
+        <label>Marginal tax rate (decimal)</label>
+        <input id="tax" type="number" step="0.01" value="0.25" />
+      </div>
+      <div>
+        <label>Market value of equity ($M)</label>
+        <input id="mve" type="number" step="1" value="800" />
+        <label>Market value of debt ($M, incl. capitalized leases)</label>
+        <input id="mvd" type="number" step="1" value="200" />
+        <label>Interest coverage ratio (EBIT / interest expense)</label>
+        <input id="icr" type="number" step="0.1" value="6.0" />
+        <label>Size premium (decimal, optional)</label>
+        <input id="size" type="number" step="0.001" value="0" />
+      </div>
+    </div>
+    <button id="run" disabled>Loading Python runtime…</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="card">
+    <strong>Result</strong>
+    <div id="result">Enter inputs and click Compute.</div>
+  </div>
+
+  <div class="card">
+    <strong>Sensitivity (unlevered beta × ERP)</strong>
+    <div id="sensitivity"></div>
+  </div>
+</main>
+
+<script type="module">
+  const statusEl = document.getElementById("status");
+  const runBtn = document.getElementById("run");
+
+  async function loadWaccPackage(pyodide) {
+    // Pyodide has no package installer for local, un-published source, so
+    // fetch each module's text and write it into the virtual filesystem
+    // under a real package directory, then import normally.
+    const files = ["__init__.py", "beta.py", "cost_of_debt.py", "calculator.py"];
+    pyodide.FS.mkdirTree("/wacc_pkg/wacc");
+    pyodide.FS.mkdirTree("/wacc_pkg/data");
+    for (const f of files) {
+      const res = await fetch(`../wacc/${f}`);
+      const text = await res.text();
+      pyodide.FS.writeFile(`/wacc_pkg/wacc/${f}`, text);
+    }
+    const ratingsRes = await fetch("../data/synthetic_ratings.json");
+    pyodide.FS.writeFile("/wacc_pkg/data/synthetic_ratings.json", await ratingsRes.text());
+    pyodide.runPython(`
+import sys
+sys.path.insert(0, "/wacc_pkg")
+import wacc
+`);
+  }
+
+  async function main() {
+    statusEl.textContent = "Loading Pyodide…";
+    const pyodide = await loadPyodide();
+    statusEl.textContent = "Loading wacc package…";
+    await loadWaccPackage(pyodide);
+    statusEl.textContent = "Ready.";
+    runBtn.disabled = false;
+    runBtn.textContent = "Compute";
+
+    runBtn.addEventListener("click", () => {
+      const inputs = {
+        rf: parseFloat(document.getElementById("rf").value),
+        erp: parseFloat(document.getElementById("erp").value),
+        beta: parseFloat(document.getElementById("beta").value),
+        tax: parseFloat(document.getElementById("tax").value),
+        mve: parseFloat(document.getElementById("mve").value),
+        mvd: parseFloat(document.getElementById("mvd").value),
+        icr: parseFloat(document.getElementById("icr").value),
+        size: parseFloat(document.getElementById("size").value),
+      };
+      pyodide.globals.set("js_inputs", pyodide.toPy(inputs));
+
+      const pyResult = pyodide.runPython(`
+import json
+from wacc import WaccInputs, compute_wacc, wacc_sensitivity
+
+_inputs = js_inputs.to_py() if hasattr(js_inputs, "to_py") else js_inputs
+wi = WaccInputs(
+    risk_free_rate=_inputs["rf"],
+    equity_risk_premium=_inputs["erp"],
+    unlevered_beta=_inputs["beta"],
+    tax_rate_marginal=_inputs["tax"],
+    market_value_equity=_inputs["mve"],
+    market_value_debt=_inputs["mvd"],
+    interest_coverage_ratio=_inputs["icr"],
+    size_premium=_inputs["size"],
+)
+result = compute_wacc(wi)
+grid = wacc_sensitivity(wi)
+json.dumps({
+    "result": {
+        "wacc": result.wacc,
+        "cost_of_equity": result.cost_of_equity,
+        "levered_beta": result.levered_beta,
+        "cost_of_debt_pretax": result.cost_of_debt_pretax,
+        "cost_of_debt_aftertax": result.cost_of_debt_aftertax,
+        "synthetic_rating": result.synthetic_rating,
+        "weight_equity": result.weight_equity,
+        "weight_debt": result.weight_debt,
+    },
+    "grid": grid,
+})
+`);
+      const parsed = JSON.parse(pyResult);
+      renderResult(parsed.result);
+      renderGrid(parsed.grid);
+    });
+  }
+
+  function pct(x) { return (x * 100).toFixed(2) + "%"; }
+
+  function renderResult(r) {
+    document.getElementById("result").textContent =
+`WACC:                  ${pct(r.wacc)}
+Cost of equity (CAPM):  ${pct(r.cost_of_equity)}  (relevered beta ${r.levered_beta.toFixed(2)})
+Cost of debt, pretax:   ${pct(r.cost_of_debt_pretax)}  (synthetic rating ${r.synthetic_rating ?? "n/a"})
+Cost of debt, after-tax:${pct(r.cost_of_debt_aftertax)}
+Weight equity / debt:   ${pct(r.weight_equity)} / ${pct(r.weight_debt)}`;
+  }
+
+  function renderGrid(rows) {
+    const betas = [...new Set(rows.map(r => r.unlevered_beta.toFixed(2)))];
+    const erps = [...new Set(rows.map(r => r.equity_risk_premium.toFixed(3)))];
+    let html = "<table><tr><th>beta \\ ERP</th>" + erps.map(e => `<th>${e}</th>`).join("") + "</tr>";
+    for (const b of betas) {
+      html += `<tr><th>${b}</th>`;
+      for (const e of erps) {
+        const cell = rows.find(r => r.unlevered_beta.toFixed(2) === b && r.equity_risk_premium.toFixed(3) === e);
+        html += `<td>${pct(cell.wacc)}</td>`;
+      }
+      html += "</tr>";
+    }
+    html += "</table>";
+    document.getElementById("sensitivity").innerHTML = html;
+  }
+
+  main();
+</script>
+</body>
+</html>
