@@ -4,12 +4,14 @@ output — the browser app only ever reads the committed JSON, never fetches
 these sources itself (Pyodide has no raw sockets, and Damodaran's site has no
 CORS headers for in-browser fetch anyway).
 
-NOT validated against a live network in this environment — Damodaran
-occasionally reshuffles column layout/sheet names in these workbooks between
-updates, so check the parsed output once after wiring this into CI before
-trusting it unattended.
+Validated against a live network run 2026-09-06 — see
+finance/corporate/investment-analysis/tools/wacc-toolkit.md in the KB for the
+validation record. Damodaran occasionally reshuffles column layout/sheet names
+in these workbooks between updates, so re-check the parsed output after any
+run that logs an unexpected column set before trusting it unattended.
 
-Requires: pandas, openpyxl, requests (dev-only; not part of the Pyodide app).
+Requires: pandas, xlrd (Damodaran's file is legacy .xls, not .xlsx — openpyxl
+alone cannot read it), requests (dev-only; not part of the Pyodide app).
 """
 
 from __future__ import annotations
@@ -24,11 +26,18 @@ import requests
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 BETAS_URL = "https://pages.stern.nyu.edu/~adamodar/pc/datasets/betas.xls"
-TBOND_URL = "https://www.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2025/all?type=daily_treasury_yield_curve&field_tdr_date_value=2025&page&_format=csv"
+TBOND_URL_TEMPLATE = (
+    "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/"
+    "daily-treasury-rates.csv/{year}/all?type=daily_treasury_yield_curve"
+    "&field_tdr_date_value={year}&page&_format=csv"
+)
+# treasury.gov resets the connection for the default urllib/requests UA and for
+# the old www.treasury.gov host — home.treasury.gov + a browser UA is required.
+REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
 def update_industry_betas() -> None:
-    resp = requests.get(BETAS_URL, timeout=30)
+    resp = requests.get(BETAS_URL, timeout=30, headers=REQUEST_HEADERS)
     resp.raise_for_status()
     tmp_path = DATA_DIR / "_betas_raw.xls"
     tmp_path.write_bytes(resp.content)
@@ -64,8 +73,13 @@ def update_industry_betas() -> None:
 
 
 def update_risk_free_rate() -> None:
-    df = pd.read_csv(TBOND_URL)
-    latest = df.iloc[-1]
+    year = dt.date.today().year
+    url = TBOND_URL_TEMPLATE.format(year=year)
+    resp = requests.get(url, timeout=30, headers=REQUEST_HEADERS)
+    resp.raise_for_status()
+    df = pd.read_csv(pd.io.common.StringIO(resp.text))
+    # Treasury's CSV is sorted newest-first — row 0 is the latest date, not row -1.
+    latest = df.iloc[0]
     ten_year_pct = float(latest["10 Yr"])
     payload = {
         "_source": "US Treasury daily par yield curve, 10yr",

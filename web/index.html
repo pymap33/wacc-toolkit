@@ -32,12 +32,16 @@
   td, th { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: right; }
   th:first-child, td:first-child { text-align: left; }
   #status { font-size: 0.8rem; color: #888; }
+  #freshness { font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 1rem; }
+  #freshness.stale { color: #c0392b; font-weight: 600; }
+  #freshness.ok { color: #888; }
 </style>
 </head>
 <body>
 <main>
   <h1>WACC Toolkit</h1>
   <p class="sub">Bottom-up beta + synthetic-rating cost of debt, computed entirely in your browser via Pyodide. No data leaves this page.</p>
+  <div id="freshness"></div>
 
   <div class="card">
     <div class="grid">
@@ -102,7 +106,55 @@ import wacc
 `);
   }
 
+  function daysSince(isoDate) {
+    if (!isoDate) return null;
+    const then = new Date(isoDate);
+    if (isNaN(then)) return null;
+    return Math.floor((Date.now() - then.getTime()) / 86400000);
+  }
+
+  async function checkDataFreshness() {
+    const freshnessEl = document.getElementById("freshness");
+    try {
+      const [rfRes, betaRes] = await Promise.all([
+        fetch("../data/risk_free_rate.json"),
+        fetch("../data/industry_betas.json"),
+      ]);
+      const rfData = await rfRes.json();
+      const betaData = await betaRes.json();
+
+      // Treasury's _as_of is MM/DD/YYYY (as stored by scripts/update_data.py);
+      // industry betas' _as_of is ISO (YYYY-MM-DD).
+      const rfParts = (rfData._as_of || "").split("/");
+      const rfIso = rfParts.length === 3 ? `${rfParts[2]}-${rfParts[0]}-${rfParts[1]}` : null;
+      const rfAge = daysSince(rfIso);
+      const betaAge = daysSince(betaData._as_of);
+
+      // Rf is a daily series — flag if the committed snapshot is over a
+      // month old. Damodaran's industry betas update roughly annually.
+      const rfStale = rfAge === null || rfAge > 30;
+      const betaStale = betaAge === null || betaAge > 400;
+
+      freshnessEl.className = (rfStale || betaStale) ? "stale" : "ok";
+      freshnessEl.textContent =
+        `Bundled data — risk-free rate: ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
+        (rfStale ? " ⚠ STALE" : "") +
+        ` · industry betas: ${betaData._as_of ?? "unknown"} (${betaAge ?? "?"}d old)` +
+        (betaStale ? " ⚠ STALE" : "") +
+        `. Re-run scripts/update_data.py and commit if either is stale — this page never fetches live.`;
+
+      const rfInput = document.getElementById("rf");
+      if (!rfStale && typeof rfData.risk_free_rate === "number") {
+        rfInput.value = rfData.risk_free_rate;
+      }
+    } catch (e) {
+      freshnessEl.className = "stale";
+      freshnessEl.textContent = "⚠ Could not read bundled data freshness — check data/*.json manually.";
+    }
+  }
+
   async function main() {
+    await checkDataFreshness();
     statusEl.textContent = "Loading Pyodide…";
     const pyodide = await loadPyodide();
     statusEl.textContent = "Loading wacc package…";

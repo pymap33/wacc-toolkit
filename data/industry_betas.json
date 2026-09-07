@@ -1,13 +1,390 @@
 {
-  "_source": "Placeholder sample values, structured like Damodaran's published industry beta dataset (https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/Betas.html). Replace by running scripts/update_data.py, which downloads and normalizes the live file. Do not treat these numbers as current.",
-  "_as_of": null,
+  "_source": "https://pages.stern.nyu.edu/~adamodar/pc/datasets/betas.xls",
+  "_as_of": "2026-09-06",
   "industries": {
-    "Semiconductor": {"unlevered_beta": 1.35, "sample_size": 68},
-    "Software (System & Application)": {"unlevered_beta": 1.20, "sample_size": 410},
-    "Retail (General)": {"unlevered_beta": 0.85, "sample_size": 22},
-    "Healthcare Products": {"unlevered_beta": 1.05, "sample_size": 190},
-    "Railroads": {"unlevered_beta": 0.70, "sample_size": 7},
-    "Aerospace/Defense": {"unlevered_beta": 0.95, "sample_size": 60},
-    "Electronics (General)": {"unlevered_beta": 1.10, "sample_size": 130}
+    "Advertising": {
+      "unlevered_beta": 0.93,
+      "sample_size": 52
+    },
+    "Aerospace/Defense": {
+      "unlevered_beta": 0.847,
+      "sample_size": 79
+    },
+    "Air Transport": {
+      "unlevered_beta": 0.704,
+      "sample_size": 23
+    },
+    "Apparel": {
+      "unlevered_beta": 0.758,
+      "sample_size": 35
+    },
+    "Auto & Truck": {
+      "unlevered_beta": 1.269,
+      "sample_size": 33
+    },
+    "Auto Parts": {
+      "unlevered_beta": 1.022,
+      "sample_size": 35
+    },
+    "Bank (Money Center)": {
+      "unlevered_beta": 0.341,
+      "sample_size": 15
+    },
+    "Banks (Regional)": {
+      "unlevered_beta": 0.287,
+      "sample_size": 568
+    },
+    "Beverage (Alcoholic)": {
+      "unlevered_beta": 0.613,
+      "sample_size": 14
+    },
+    "Beverage (Soft)": {
+      "unlevered_beta": 0.556,
+      "sample_size": 27
+    },
+    "Broadcasting": {
+      "unlevered_beta": 0.286,
+      "sample_size": 24
+    },
+    "Brokerage & Investment Banking": {
+      "unlevered_beta": 0.581,
+      "sample_size": 32
+    },
+    "Building Materials": {
+      "unlevered_beta": 0.93,
+      "sample_size": 41
+    },
+    "Business & Consumer Services": {
+      "unlevered_beta": 0.774,
+      "sample_size": 155
+    },
+    "Cable TV": {
+      "unlevered_beta": 0.352,
+      "sample_size": 9
+    },
+    "Chemical (Basic)": {
+      "unlevered_beta": 0.58,
+      "sample_size": 29
+    },
+    "Chemical (Diversified)": {
+      "unlevered_beta": 0.367,
+      "sample_size": 4
+    },
+    "Chemical (Specialty)": {
+      "unlevered_beta": 0.792,
+      "sample_size": 59
+    },
+    "Coal & Related Energy": {
+      "unlevered_beta": 1.017,
+      "sample_size": 16
+    },
+    "Computer Services": {
+      "unlevered_beta": 0.916,
+      "sample_size": 64
+    },
+    "Computers/Peripherals": {
+      "unlevered_beta": 1.305,
+      "sample_size": 36
+    },
+    "Construction Supplies": {
+      "unlevered_beta": 1.016,
+      "sample_size": 40
+    },
+    "Diversified": {
+      "unlevered_beta": 0.789,
+      "sample_size": 20
+    },
+    "Drugs (Biotechnology)": {
+      "unlevered_beta": 1.034,
+      "sample_size": 496
+    },
+    "Drugs (Pharmaceutical)": {
+      "unlevered_beta": 0.886,
+      "sample_size": 228
+    },
+    "Education": {
+      "unlevered_beta": 0.66,
+      "sample_size": 32
+    },
+    "Electrical Equipment": {
+      "unlevered_beta": 1.148,
+      "sample_size": 112
+    },
+    "Electronics (Consumer & Office)": {
+      "unlevered_beta": 0.83,
+      "sample_size": 8
+    },
+    "Electronics (General)": {
+      "unlevered_beta": 0.897,
+      "sample_size": 114
+    },
+    "Engineering/Construction": {
+      "unlevered_beta": 1.095,
+      "sample_size": 48
+    },
+    "Entertainment": {
+      "unlevered_beta": 0.737,
+      "sample_size": 92
+    },
+    "Environmental & Waste Services": {
+      "unlevered_beta": 0.814,
+      "sample_size": 53
+    },
+    "Farming/Agriculture": {
+      "unlevered_beta": 0.813,
+      "sample_size": 35
+    },
+    "Financial Svcs. (Non-bank & Insurance)": {
+      "unlevered_beta": 0.319,
+      "sample_size": 176
+    },
+    "Food Processing": {
+      "unlevered_beta": 0.457,
+      "sample_size": 78
+    },
+    "Food Wholesalers": {
+      "unlevered_beta": 0.641,
+      "sample_size": 13
+    },
+    "Furn/Home Furnishings": {
+      "unlevered_beta": 0.625,
+      "sample_size": 27
+    },
+    "Green & Renewable Energy": {
+      "unlevered_beta": 0.463,
+      "sample_size": 15
+    },
+    "Healthcare Products": {
+      "unlevered_beta": 0.829,
+      "sample_size": 204
+    },
+    "Healthcare Support Services": {
+      "unlevered_beta": 0.689,
+      "sample_size": 104
+    },
+    "Heathcare Information and Technology": {
+      "unlevered_beta": 0.991,
+      "sample_size": 115
+    },
+    "Homebuilding": {
+      "unlevered_beta": 0.785,
+      "sample_size": 30
+    },
+    "Hospitals/Healthcare Facilities": {
+      "unlevered_beta": 0.552,
+      "sample_size": 31
+    },
+    "Hotel/Gaming": {
+      "unlevered_beta": 0.832,
+      "sample_size": 63
+    },
+    "Household Products": {
+      "unlevered_beta": 0.718,
+      "sample_size": 110
+    },
+    "Information Services": {
+      "unlevered_beta": 0.737,
+      "sample_size": 15
+    },
+    "Insurance (General)": {
+      "unlevered_beta": 0.564,
+      "sample_size": 21
+    },
+    "Insurance (Life)": {
+      "unlevered_beta": 0.427,
+      "sample_size": 20
+    },
+    "Insurance (Prop/Cas.)": {
+      "unlevered_beta": 0.436,
+      "sample_size": 57
+    },
+    "Investments & Asset Management": {
+      "unlevered_beta": 0.53,
+      "sample_size": 283
+    },
+    "Machinery": {
+      "unlevered_beta": 0.868,
+      "sample_size": 105
+    },
+    "Metals & Mining": {
+      "unlevered_beta": 0.964,
+      "sample_size": 73
+    },
+    "Office Equipment & Services": {
+      "unlevered_beta": 0.981,
+      "sample_size": 14
+    },
+    "Oil/Gas (Integrated)": {
+      "unlevered_beta": 0.271,
+      "sample_size": 4
+    },
+    "Oil/Gas (Production and Exploration)": {
+      "unlevered_beta": 0.563,
+      "sample_size": 142
+    },
+    "Oil/Gas Distribution": {
+      "unlevered_beta": 0.465,
+      "sample_size": 23
+    },
+    "Oilfield Svcs/Equip.": {
+      "unlevered_beta": 0.743,
+      "sample_size": 97
+    },
+    "Packaging & Container": {
+      "unlevered_beta": 0.723,
+      "sample_size": 19
+    },
+    "Paper/Forest Products": {
+      "unlevered_beta": 0.722,
+      "sample_size": 6
+    },
+    "Power": {
+      "unlevered_beta": 0.31,
+      "sample_size": 46
+    },
+    "Precious Metals": {
+      "unlevered_beta": 0.793,
+      "sample_size": 56
+    },
+    "Publishing & Newspapers": {
+      "unlevered_beta": 0.477,
+      "sample_size": 19
+    },
+    "R.E.I.T.": {
+      "unlevered_beta": 0.393,
+      "sample_size": 190
+    },
+    "Real Estate (Development)": {
+      "unlevered_beta": 0.478,
+      "sample_size": 14
+    },
+    "Real Estate (General/Diversified)": {
+      "unlevered_beta": 0.578,
+      "sample_size": 12
+    },
+    "Real Estate (Operations & Services)": {
+      "unlevered_beta": 0.815,
+      "sample_size": 54
+    },
+    "Recreation": {
+      "unlevered_beta": 0.695,
+      "sample_size": 49
+    },
+    "Reinsurance": {
+      "unlevered_beta": 0.438,
+      "sample_size": 1
+    },
+    "Restaurant/Dining": {
+      "unlevered_beta": 0.767,
+      "sample_size": 64
+    },
+    "Retail (Automotive)": {
+      "unlevered_beta": 0.698,
+      "sample_size": 34
+    },
+    "Retail (Building Supply)": {
+      "unlevered_beta": 1.307,
+      "sample_size": 14
+    },
+    "Retail (Distributors)": {
+      "unlevered_beta": 0.783,
+      "sample_size": 62
+    },
+    "Retail (General)": {
+      "unlevered_beta": 0.76,
+      "sample_size": 23
+    },
+    "Retail (Grocery and Food)": {
+      "unlevered_beta": 0.805,
+      "sample_size": 15
+    },
+    "Retail (REITs)": {
+      "unlevered_beta": 0.436,
+      "sample_size": 26
+    },
+    "Retail (Special Lines)": {
+      "unlevered_beta": 0.949,
+      "sample_size": 94
+    },
+    "Rubber& Tires": {
+      "unlevered_beta": 0.144,
+      "sample_size": 3
+    },
+    "Semiconductor": {
+      "unlevered_beta": 1.489,
+      "sample_size": 66
+    },
+    "Semiconductor Equip": {
+      "unlevered_beta": 1.348,
+      "sample_size": 31
+    },
+    "Shipbuilding & Marine": {
+      "unlevered_beta": 0.644,
+      "sample_size": 8
+    },
+    "Shoe": {
+      "unlevered_beta": 0.934,
+      "sample_size": 11
+    },
+    "Software (Entertainment)": {
+      "unlevered_beta": 1.013,
+      "sample_size": 77
+    },
+    "Software (Internet)": {
+      "unlevered_beta": 1.546,
+      "sample_size": 29
+    },
+    "Software (System & Application)": {
+      "unlevered_beta": 1.225,
+      "sample_size": 309
+    },
+    "Steel": {
+      "unlevered_beta": 0.904,
+      "sample_size": 19
+    },
+    "Telecom (Wireless)": {
+      "unlevered_beta": 0.387,
+      "sample_size": 12
+    },
+    "Telecom. Equipment": {
+      "unlevered_beta": 0.863,
+      "sample_size": 57
+    },
+    "Telecom. Services": {
+      "unlevered_beta": 0.365,
+      "sample_size": 39
+    },
+    "Tobacco": {
+      "unlevered_beta": 0.678,
+      "sample_size": 10
+    },
+    "Transportation": {
+      "unlevered_beta": 0.675,
+      "sample_size": 19
+    },
+    "Transportation (Railroads)": {
+      "unlevered_beta": 0.807,
+      "sample_size": 4
+    },
+    "Trucking": {
+      "unlevered_beta": 0.85,
+      "sample_size": 26
+    },
+    "Utility (General)": {
+      "unlevered_beta": 0.149,
+      "sample_size": 14
+    },
+    "Utility (Water)": {
+      "unlevered_beta": 0.281,
+      "sample_size": 14
+    },
+    "Total Market": {
+      "unlevered_beta": 0.722,
+      "sample_size": 5994
+    },
+    "Total Market (without financials)": {
+      "unlevered_beta": 0.878,
+      "sample_size": 4822
+    }
   }
 }

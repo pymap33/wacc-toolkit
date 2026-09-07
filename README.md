@@ -50,6 +50,7 @@ data/
 scripts/
   update_data.py       Refreshes data/*.json from public sources (Damodaran, Treasury).
                         Not wired into CI yet; run manually and commit the diff.
+                        `pip install -r scripts/requirements.txt` first.
 web/
   index.html            Static Pyodide page — loads the wacc/ package into
                          the browser's virtual filesystem and runs it client-side
@@ -95,21 +96,28 @@ python -m http.server 8000
 
 ## Data freshness
 
-`data/industry_betas.json` currently ships with **placeholder sample
-values** — do not use it for a real valuation until `scripts/update_data.py`
-has been run (or wired into a scheduled CI job) against the live Damodaran
-dataset. `data/synthetic_ratings.json` is a static approximation of
-Damodaran's published interest-coverage-ratio bucket structure and should
-be refreshed periodically the same way.
+`data/industry_betas.json` and `data/risk_free_rate.json` are refreshed by
+running `scripts/update_data.py` — **validated against a live network pull
+2026-09-06** (see Known limitations). `data/synthetic_ratings.json` is a
+static approximation of Damodaran's published interest-coverage-ratio bucket
+structure and should be refreshed periodically the same way, though no script
+does that yet.
 
 ## Known limitations / next steps
 
 - No distress-cost term, so WACC-vs-leverage is not bounded below in
   extreme scenarios (see note above).
-- `scripts/update_data.py` has not been validated against a live network
-  pull in this environment — check the parsed output once before trusting
-  it in an unattended (cron) run, since Damodaran's workbook layout shifts
-  occasionally between updates.
+- `scripts/update_data.py` was validated end-to-end against live sources
+  2026-09-06. Two bugs were found and fixed in that pass: the Treasury CSV
+  is sorted **newest-first**, so the risk-free-rate reader must take row 0,
+  not row -1 (it silently pulled an 8-month-stale rate before the fix); and
+  the Treasury URL needs `home.treasury.gov` (not `www.`) plus a browser
+  `User-Agent` header, or the connection is reset. The year in that URL is
+  now derived from the current date rather than hardcoded. Damodaran's
+  workbook layout still shifts occasionally between updates — re-check the
+  parsed output after any run that logs an unexpected column set before
+  trusting it unattended (e.g., in a scheduled CI job).
+- Not yet wired into a scheduled job — still a manual run + commit.
 - No multi-currency / cross-border WACC handling for multinationals.
 - Sensitivity grid is beta × ERP only; leverage and cost-of-debt sensitivity
   are natural next axes.
