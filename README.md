@@ -1,10 +1,56 @@
 # WACC Toolkit
 
-A WACC calculator that fixes the shortcuts most free WACC calculators take,
-runnable both as a plain Python library and as a static browser page (via
-[Pyodide](https://pyodide.org/)) with no server and no data leaving the page.
+A small toolkit of WACC calculation methods that fix the shortcuts most free
+WACC calculators take. Two calculators today, each solving a different
+problem — pick the one that matches your situation, not just the first one
+you find. Runnable both as a plain Python library and as a static browser
+page (via [Pyodide](https://pyodide.org/)) with no server and no data
+leaving the page.
 
-## What this does differently
+## Which calculator do I need?
+
+| | Calculator 1: Bottom-Up Beta / Synthetic-Rating WACC | Calculator 2: Segment-Level (Sum-of-Parts) WACC |
+|---|---|---|
+| **Use when** | Valuing a whole company as a single unit | The company has genuinely different-risk segments (a regulated utility arm vs. a merchant/growth arm) and one blended number would misprice at least one of them |
+| **Function** | `compute_wacc(WaccInputs(...))` | `compute_segment_wacc(consolidated, [SegmentOverride(...), ...])` + `weighted_average_wacc(...)` |
+| **Module** | `wacc/calculator.py` (+ `beta.py`, `cost_of_debt.py`) | `wacc/segment.py` (wraps calculator 1 — same core math, run once per segment) |
+| **Output** | One WACC + a beta×ERP sensitivity grid | One WACC per segment + a capital-weighted sum-of-parts aggregate, for comparison against calculator 1's naive company-level number |
+| **Full docs** | § "Calculator 1" below | § "Calculator 2" below |
+
+Not sure which applies? Read `finance/methods/wacc-methodology-reference.md`
+(if you have access to the KB this toolkit was built for) — it has the full
+decision matrix this table is a summary of. Both calculators share the same
+underlying method for cost of equity and cost of debt; calculator 2 only
+changes *how many times* and *with what inputs* that method runs.
+
+## Layout
+
+```
+wacc/                 Core library (pure Python, no dependencies)
+  beta.py             Relever/unlever (Hamada) -- shared by both calculators
+  cost_of_debt.py      Synthetic rating -> spread lookup -- shared by both calculators
+  calculator.py        Calculator 1 (whole-company) -- WaccInputs / compute_wacc / wacc_sensitivity
+  segment.py            Calculator 2 (segment-level) -- SegmentOverride /
+                        compute_segment_wacc / weighted_average_wacc
+data/
+  synthetic_ratings.json   Interest-coverage-ratio -> rating -> spread table
+  industry_betas.json      Sample industry unlevered betas (placeholder — see below)
+scripts/
+  update_data.py       Refreshes data/*.json from public sources (Damodaran, Treasury).
+                        Not wired into CI yet; run manually and commit the diff.
+                        `pip install -r scripts/requirements.txt` first.
+web/
+  index.html            Static Pyodide page — loads the wacc/ package into
+                         the browser's virtual filesystem and runs it client-side
+                         (calculator 1 only — see Known limitations)
+tests/
+  test_calculator.py    Calculator 1 unit tests, no network required
+  test_segment.py       Calculator 2 unit tests, no network required
+```
+
+## Calculator 1: Bottom-Up Beta / Synthetic-Rating WACC (whole-company)
+
+### What this does differently
 
 Most WACC calculators (free web tools, most spreadsheet templates):
 
@@ -37,30 +83,7 @@ Modigliani-Miller-with-taxes result predicts — WACC can *decrease* as
 leverage increases if the tax shield outweighs higher component costs. That
 is expected model behavior, not a bug; see `tests/test_calculator.py`.
 
-## Layout
-
-```
-wacc/                 Core library (pure Python, no dependencies)
-  beta.py             Relever/unlever (Hamada)
-  cost_of_debt.py      Synthetic rating -> spread lookup
-  calculator.py        WaccInputs / compute_wacc / wacc_sensitivity
-  segment.py            Segment-level (sum-of-parts) WACC -- SegmentOverride /
-                        compute_segment_wacc / weighted_average_wacc
-data/
-  synthetic_ratings.json   Interest-coverage-ratio -> rating -> spread table
-  industry_betas.json      Sample industry unlevered betas (placeholder — see below)
-scripts/
-  update_data.py       Refreshes data/*.json from public sources (Damodaran, Treasury).
-                        Not wired into CI yet; run manually and commit the diff.
-                        `pip install -r scripts/requirements.txt` first.
-web/
-  index.html            Static Pyodide page — loads the wacc/ package into
-                         the browser's virtual filesystem and runs it client-side
-tests/
-  test_calculator.py    Pure-Python unit tests, no network required
-```
-
-## Running the library
+### Running calculator 1
 
 ```python
 from wacc import WaccInputs, compute_wacc, wacc_sensitivity
@@ -80,12 +103,14 @@ print(result.wacc)
 grid = wacc_sensitivity(inputs)   # list of {beta_delta, erp_delta, wacc, ...}
 ```
 
-## Segment-level (sum-of-parts) WACC
+## Calculator 2: Segment-Level (Sum-of-Parts) WACC
 
-A single company-level WACC prices every segment at the same business risk.
-That's wrong for a conglomerate with genuinely different-risk segments — use
-`compute_segment_wacc` to get one WACC per segment instead, reusing the same
-core calculator with a per-segment beta:
+A single company-level WACC (calculator 1) prices every segment at the same
+business risk. That's wrong for a conglomerate with genuinely different-risk
+segments — use `compute_segment_wacc` to get one WACC per segment instead,
+reusing calculator 1's own math with a per-segment beta:
+
+### Running calculator 2
 
 ```python
 from wacc import WaccInputs, SegmentOverride, compute_segment_wacc, weighted_average_wacc
@@ -168,3 +193,29 @@ does that yet.
   betas for you; you still have to pick a comparable pure-play beta per
   segment (same manual step `industry_betas.json` automates at the
   whole-company level, not yet extended to segments).
+
+## Adding a future calculator (3, 4, ...)
+
+Each calculator gets its own numbered `## Calculator N: <Descriptive Name>`
+section (not a generic subsection folded into an existing one), following
+the pattern above:
+
+1. Add a row to the **"Which calculator do I need?"** table at the top —
+   use case, function, module, output — *before* writing any code. If you
+   can't fill in the "Use when" cell in one sentence, the calculator isn't
+   scoped yet.
+2. New logic goes in its own `wacc/<name>.py` module; reuse `beta.py` and
+   `cost_of_debt.py` rather than re-deriving cost-of-equity/cost-of-debt
+   math, the way `segment.py` reuses `calculator.py`.
+3. **If the new module is imported by `wacc/__init__.py`, add it to
+   `web/index.html`'s `files` array in the same commit.** This exact
+   omission broke the live browser page on 2026-09-09 (see git history,
+   commit `6ac4baf`) — the Python test suite can't catch it because it
+   never touches the browser loader, so this has to be a manual checklist
+   item, not something you'll get a red test for.
+4. Add `tests/test_<name>.py`, same plain-assert style as the existing two
+   test files (no pytest dependency).
+5. Check `finance/methods/wacc-methodology-reference.md` (if you have KB
+   access) for whether the new calculator's decision-matrix row already
+   exists there — update it if the new tool changes which method applies
+   when.
