@@ -44,6 +44,8 @@ wacc/                 Core library (pure Python, no dependencies)
   beta.py             Relever/unlever (Hamada)
   cost_of_debt.py      Synthetic rating -> spread lookup
   calculator.py        WaccInputs / compute_wacc / wacc_sensitivity
+  segment.py            Segment-level (sum-of-parts) WACC -- SegmentOverride /
+                        compute_segment_wacc / weighted_average_wacc
 data/
   synthetic_ratings.json   Interest-coverage-ratio -> rating -> spread table
   industry_betas.json      Sample industry unlevered betas (placeholder — see below)
@@ -78,10 +80,50 @@ print(result.wacc)
 grid = wacc_sensitivity(inputs)   # list of {beta_delta, erp_delta, wacc, ...}
 ```
 
+## Segment-level (sum-of-parts) WACC
+
+A single company-level WACC prices every segment at the same business risk.
+That's wrong for a conglomerate with genuinely different-risk segments — use
+`compute_segment_wacc` to get one WACC per segment instead, reusing the same
+core calculator with a per-segment beta:
+
+```python
+from wacc import WaccInputs, SegmentOverride, compute_segment_wacc, weighted_average_wacc
+
+consolidated = WaccInputs(
+    risk_free_rate=0.04,
+    equity_risk_premium=0.05,
+    unlevered_beta=1.0,          # only used if a segment doesn't override it
+    tax_rate_marginal=0.25,
+    market_value_equity=800.0,
+    market_value_debt=200.0,
+    interest_coverage_ratio=6.0,
+)
+
+segments = [
+    SegmentOverride(name="Regulated Grid", unlevered_beta=0.5, capital_weight=0.7),
+    SegmentOverride(name="Merchant Renewables", unlevered_beta=1.4, capital_weight=0.3),
+]
+
+results = compute_segment_wacc(consolidated, segments)
+for r in results:
+    print(r.name, r.result.wacc)
+
+sum_of_parts_wacc = weighted_average_wacc(results)  # capital-weighted average, for comparison against compute_wacc(consolidated).wacc
+```
+
+Only `unlevered_beta` needs to differ per segment in the typical case —
+capital-structure weights and cost of debt default to the consolidated
+company (debt is almost never actually allocated to a segment on the balance
+sheet), but every field on `SegmentOverride` can be overridden individually
+for the rare case where a segment has its own disclosed structure (e.g. a
+ring-fenced project-finance subsidiary).
+
 ## Running the tests
 
 ```
 python tests/test_calculator.py
+python tests/test_segment.py
 ```
 
 ## Running the browser page
@@ -121,3 +163,8 @@ does that yet.
 - No multi-currency / cross-border WACC handling for multinationals.
 - Sensitivity grid is beta × ERP only; leverage and cost-of-debt sensitivity
   are natural next axes.
+- Segment-level WACC (`wacc/segment.py`) is Python-library only — not yet
+  wired into `web/index.html`'s browser UI, and it does not fetch segment
+  betas for you; you still have to pick a comparable pure-play beta per
+  segment (same manual step `industry_betas.json` automates at the
+  whole-company level, not yet extended to segments).
