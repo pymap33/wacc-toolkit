@@ -89,7 +89,7 @@
     // Pyodide has no package installer for local, un-published source, so
     // fetch each module's text and write it into the virtual filesystem
     // under a real package directory, then import normally.
-    const files = ["__init__.py", "beta.py", "cost_of_debt.py", "calculator.py"];
+    const files = ["__init__.py", "beta.py", "cost_of_debt.py", "calculator.py", "segment.py"];
     pyodide.FS.mkdirTree("/wacc_pkg/wacc");
     pyodide.FS.mkdirTree("/wacc_pkg/data");
     for (const f of files) {
