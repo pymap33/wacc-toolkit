@@ -38,3 +38,11 @@ def test_manifest_data_matches_directory():
         f"wacc/manifest.json's data list is stale (manifest={manifest['data']!r}, "
         f"actual={actual!r}). Run scripts/generate_manifest.py and commit the result."
     )
+
+
+if __name__ == "__main__":
+    tests = [obj for name, obj in list(globals().items()) if name.startswith("test_")]
+    for t in tests:
+        t()
+        print(f"OK: {t.__name__}")
+    print(f"\n{len(tests)} tests passed.")

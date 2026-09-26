@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WACC Toolkit — Regression-Beta / Liquid Large-Cap</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f5;
+    --fg: #1a1a1a;
+    --card: #ffffff;
+    --border: #d9d9d4;
+    --accent: #2f6f4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15161a; --fg: #e8e8e6; --card: #1e2024; --border: #33353a; --accent: #6fbf94; }
+  }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+  main { max-width: 780px; margin: 0 auto; }
+  a.back { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
+  a.back:hover { text-decoration: underline; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.calc-badge { display: inline-block; background: var(--accent); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 999px; margin: 0 0 0.6rem 0; }
+  p.sub { color: #888; margin-top: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+  label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; }
+  input, select { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; margin-bottom: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  button { background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #result { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: 0.5rem; }
+  td, th { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  #status { font-size: 0.8rem; color: #888; }
+  #freshness { font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 1rem; }
+  #freshness.stale { color: #c0392b; font-weight: 600; }
+  #freshness.ok { color: #888; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="index.html">&larr; All calculators</a>
+  <h1>WACC Toolkit</h1>
+  <p class="calc-badge" id="calc-badge"></p>
+  <p class="sub">Regression beta + directly observed traded-debt cost, computed entirely in your browser via Pyodide. No data leaves this page. For a liquid large-cap with a stable structure and a long trading history — see the hub page if that's not your case.</p>
+  <div id="freshness"></div>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>Risk-free rate (10yr, decimal)</label>
+        <input id="rf" type="number" step="0.001" value="0.04" />
+        <label>Equity risk premium (decimal)</label>
+        <input id="erp" type="number" step="0.001" value="0.05" />
+        <label>Regression beta (levered — 3-5yr monthly vs. a broad index)</label>
+        <input id="beta" type="number" step="0.01" value="1.10" />
+        <label>Marginal tax rate (decimal)</label>
+        <input id="tax" type="number" step="0.01" value="0.25" />
+      </div>
+      <div>
+        <label>Market value of equity ($M)</label>
+        <input id="mve" type="number" step="1" value="800" />
+        <label>Market value of debt ($M, incl. capitalized leases)</label>
+        <input id="mvd" type="number" step="1" value="200" />
+        <label>Traded-debt cost, pretax (YTM, decimal)</label>
+        <input id="cod" type="number" step="0.001" value="0.05" />
+        <label>Size premium (decimal, optional)</label>
+        <input id="size" type="number" step="0.001" value="0" />
+      </div>
+    </div>
+    <button id="run" disabled>Loading Python runtime…</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="card">
+    <strong>Result</strong>
+    <div id="result">Enter inputs and click Compute.</div>
+  </div>
+
+  <div class="card">
+    <strong>Sensitivity (regression beta × ERP)</strong>
+    <div id="sensitivity"></div>
+  </div>
+</main>
+
+<script type="module">
+  import { loadWaccPackage, fetchDataFreshness, pct } from "./shared/wacc-loader.js";
+
+  // Single source of truth for the active calculator's name — used for both
+  // the page badge and the result output, so the two can't drift apart.
+  const ACTIVE_CALCULATOR_NAME = "Calculator 3: Regression-Beta / Liquid Large-Cap WACC";
+
+  const statusEl = document.getElementById("status");
+  const runBtn = document.getElementById("run");
+
+  async function renderDataFreshness() {
+    const freshnessEl = document.getElementById("freshness");
+    try {
+      // This calculator doesn't use the bundled industry-beta table (its
+      // beta comes from the user's own regression, not Damodaran's
+      // industry data) — only the risk-free rate is relevant here.
+      const { rfData, rfAge, rfStale } = await fetchDataFreshness();
+
+      freshnessEl.className = rfStale ? "stale" : "ok";
+      freshnessEl.textContent =
+        `Bundled data — risk-free rate: ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
+        (rfStale ? " ⚠ STALE" : "") +
+        `. Industry-beta freshness doesn't apply to this calculator — enter your own regression beta. ` +
+        `Re-run scripts/update_data.py and commit if the rate is stale — this page never fetches live.`;
+
+      const rfInput = document.getElementById("rf");
+      if (!rfStale && typeof rfData.risk_free_rate === "number") {
+        rfInput.value = rfData.risk_free_rate;
+      }
+    } catch (e) {
+      freshnessEl.className = "stale";
+      freshnessEl.textContent = "⚠ Could not read bundled data freshness — check data/*.json manually.";
+    }
+  }
+
+  async function main() {
+    document.getElementById("calc-badge").textContent = ACTIVE_CALCULATOR_NAME;
+    await renderDataFreshness();
+    statusEl.textContent = "Loading Pyodide…";
+    const pyodide = await loadPyodide();
+    statusEl.textContent = "Loading wacc package…";
+    await loadWaccPackage(pyodide);
+    statusEl.textContent = "Ready.";
+    runBtn.disabled = false;
+    runBtn.textContent = "Compute";
+
+    runBtn.addEventListener("click", () => {
+      const inputs = {
+        rf: parseFloat(document.getElementById("rf").value),
+        erp: parseFloat(document.getElementById("erp").value),
+        beta: parseFloat(document.getElementById("beta").value),
+        tax: parseFloat(document.getElementById("tax").value),
+        mve: parseFloat(document.getElementById("mve").value),
+        mvd: parseFloat(document.getElementById("mvd").value),
+        cod: parseFloat(document.getElementById("cod").value),
+        size: parseFloat(document.getElementById("size").value),
+      };
+      pyodide.globals.set("js_inputs", pyodide.toPy(inputs));
+
+      const pyResult = pyodide.runPython(`
+import json
+from wacc import RegressionWaccInputs, compute_regression_wacc, regression_wacc_sensitivity
+
+_inputs = js_inputs.to_py() if hasattr(js_inputs, "to_py") else js_inputs
+wi = RegressionWaccInputs(
+    risk_free_rate=_inputs["rf"],
+    equity_risk_premium=_inputs["erp"],
+    regression_beta=_inputs["beta"],
+    tax_rate_marginal=_inputs["tax"],
+    market_value_equity=_inputs["mve"],
+    market_value_debt=_inputs["mvd"],
+    cost_of_debt_pretax=_inputs["cod"],
+    size_premium=_inputs["size"],
+)
+result = compute_regression_wacc(wi)
+grid = regression_wacc_sensitivity(wi)
+json.dumps({
+    "result": {
+        "wacc": result.wacc,
+        "cost_of_equity": result.cost_of_equity,
+        "levered_beta": result.levered_beta,
+        "cost_of_debt_pretax": result.cost_of_debt_pretax,
+        "cost_of_debt_aftertax": result.cost_of_debt_aftertax,
+        "weight_equity": result.weight_equity,
+        "weight_debt": result.weight_debt,
+    },
+    "grid": grid,
+})
+`);
+      const parsed = JSON.parse(pyResult);
+      renderResult(parsed.result);
+      renderGrid(parsed.grid);
+    });
+  }
+
+  function renderResult(r) {
+    document.getElementById("result").textContent =
+`Method:                 ${ACTIVE_CALCULATOR_NAME}
+WACC:                  ${pct(r.wacc)}
+Cost of equity (CAPM):  ${pct(r.cost_of_equity)}  (regression beta ${r.levered_beta.toFixed(2)}, used directly)
+Cost of debt, pretax:   ${pct(r.cost_of_debt_pretax)}  (traded-debt YTM, as entered)
+Cost of debt, after-tax:${pct(r.cost_of_debt_aftertax)}
+Weight equity / debt:   ${pct(r.weight_equity)} / ${pct(r.weight_debt)}`;
+  }
+
+  function renderGrid(rows) {
+    const betas = [...new Set(rows.map(r => r.regression_beta.toFixed(2)))];
+    const erps = [...new Set(rows.map(r => r.equity_risk_premium.toFixed(3)))];
+    let html = "<table><tr><th>beta \\ ERP</th>" + erps.map(e => `<th>${e}</th>`).join("") + "</tr>";
+    for (const b of betas) {
+      html += `<tr><th>${b}</th>`;
+      for (const e of erps) {
+        const cell = rows.find(r => r.regression_beta.toFixed(2) === b && r.equity_risk_premium.toFixed(3) === e);
+        html += `<td>${pct(cell.wacc)}</td>`;
+      }
+      html += "</tr>";
+    }
+    html += "</table>";
+    document.getElementById("sensitivity").innerHTML = html;
+  }
+
+  main();
+</script>
+</body>
+</html>

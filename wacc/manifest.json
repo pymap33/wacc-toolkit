@@ -5,6 +5,7 @@
     "beta.py",
     "calculator.py",
     "cost_of_debt.py",
+    "regression_beta.py",
     "segment.py"
   ],
   "data": [

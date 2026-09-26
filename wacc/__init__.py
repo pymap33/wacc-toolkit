@@ -7,6 +7,11 @@ from .segment import (
     compute_segment_wacc,
     weighted_average_wacc,
 )
+from .regression_beta import (
+    RegressionWaccInputs,
+    compute_regression_wacc,
+    regression_wacc_sensitivity,
+)
 
 __all__ = [
     "relever_beta",
@@ -20,4 +25,7 @@ __all__ = [
     "SegmentWaccResult",
     "compute_segment_wacc",
     "weighted_average_wacc",
+    "RegressionWaccInputs",
+    "compute_regression_wacc",
+    "regression_wacc_sensitivity",
 ]
