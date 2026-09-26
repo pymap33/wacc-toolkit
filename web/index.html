@@ -20,6 +20,7 @@
   body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
   main { max-width: 780px; margin: 0 auto; }
   h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.calc-badge { display: inline-block; background: var(--accent); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 999px; margin: 0 0 0.6rem 0; }
   p.sub { color: #888; margin-top: 0; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
   label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; }
@@ -40,6 +41,7 @@
 <body>
 <main>
   <h1>WACC Toolkit</h1>
+  <p class="calc-badge" id="calc-badge"></p>
   <p class="sub">Bottom-up beta + synthetic-rating cost of debt, computed entirely in your browser via Pyodide. No data leaves this page.</p>
   <div id="freshness"></div>
 
@@ -82,6 +84,11 @@
 </main>
 
 <script type="module">
+  // Single source of truth for the active calculator's name — used for both
+  // the page badge and the result output, so the two can't drift apart when
+  // a future calculator is added to this page.
+  const ACTIVE_CALCULATOR_NAME = "Calculator 1: Bottom-Up Beta / Synthetic-Rating WACC (whole-company)";
+
   const statusEl = document.getElementById("status");
   const runBtn = document.getElementById("run");
 
@@ -168,6 +175,7 @@ import wacc
   }
 
   async function main() {
+    document.getElementById("calc-badge").textContent = ACTIVE_CALCULATOR_NAME;
     await checkDataFreshness();
     statusEl.textContent = "Loading Pyodide…";
     const pyodide = await loadPyodide();
@@ -231,7 +239,8 @@ json.dumps({
 
   function renderResult(r) {
     document.getElementById("result").textContent =
-`WACC:                  ${pct(r.wacc)}
+`Method:                 ${ACTIVE_CALCULATOR_NAME}
+WACC:                  ${pct(r.wacc)}
 Cost of equity (CAPM):  ${pct(r.cost_of_equity)}  (relevered beta ${r.levered_beta.toFixed(2)})
 Cost of debt, pretax:   ${pct(r.cost_of_debt_pretax)}  (synthetic rating ${r.synthetic_rating ?? "n/a"})
 Cost of debt, after-tax:${pct(r.cost_of_debt_aftertax)}
