@@ -18,6 +18,18 @@ from .build_up import (
     compute_build_up_wacc,
     build_up_wacc_sensitivity,
 )
+from .total_beta import (
+    TotalBetaWaccInputs,
+    TotalBetaWaccResult,
+    compute_total_beta_wacc,
+    total_beta_wacc_sensitivity,
+)
+from .fama_french import (
+    FamaFrenchWaccInputs,
+    FamaFrenchWaccResult,
+    compute_fama_french_wacc,
+    fama_french_wacc_sensitivity,
+)
 
 __all__ = [
     "relever_beta",
@@ -38,4 +50,12 @@ __all__ = [
     "BuildUpWaccResult",
     "compute_build_up_wacc",
     "build_up_wacc_sensitivity",
+    "TotalBetaWaccInputs",
+    "TotalBetaWaccResult",
+    "compute_total_beta_wacc",
+    "total_beta_wacc_sensitivity",
+    "FamaFrenchWaccInputs",
+    "FamaFrenchWaccResult",
+    "compute_fama_french_wacc",
+    "fama_french_wacc_sensitivity",
 ]

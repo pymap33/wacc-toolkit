@@ -6,8 +6,10 @@
     "build_up.py",
     "calculator.py",
     "cost_of_debt.py",
+    "fama_french.py",
     "regression_beta.py",
-    "segment.py"
+    "segment.py",
+    "total_beta.py"
   ],
   "data": [
     "industry_betas.json",

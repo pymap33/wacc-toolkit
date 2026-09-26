@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WACC Toolkit — Fama-French 3-Factor</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f5;
+    --fg: #1a1a1a;
+    --card: #ffffff;
+    --border: #d9d9d4;
+    --accent: #2f6f4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15161a; --fg: #e8e8e6; --card: #1e2024; --border: #33353a; --accent: #6fbf94; }
+  }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+  main { max-width: 780px; margin: 0 auto; }
+  a.back { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
+  a.back:hover { text-decoration: underline; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.calc-badge { display: inline-block; background: var(--accent); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 999px; margin: 0 0 0.6rem 0; }
+  p.sub { color: #888; margin-top: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+  label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; }
+  input, select { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; margin-bottom: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  button { background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  #result { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: 0.5rem; }
+  td, th { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  #status { font-size: 0.8rem; color: #888; }
+  #freshness { font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 1rem; }
+  #freshness.stale { color: #c0392b; font-weight: 600; }
+  #freshness.ok { color: #888; }
+  .note { font-size: 0.8rem; color: #888; margin-top: -0.4rem; margin-bottom: 0.8rem; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="index.html">&larr; All calculators</a>
+  <h1>WACC Toolkit</h1>
+  <p class="calc-badge" id="calc-badge"></p>
+  <p class="sub">Fama-French three-factor cost of equity + market-value weights, computed entirely in your browser via Pyodide. No data leaves this page. For a liquid public company with a real size or value/growth tilt, where a single market beta (Calculator 3) misses risk the size and value factors price — see the hub page if that's not your case.</p>
+  <div id="freshness"></div>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>Risk-free rate (10yr, decimal)</label>
+        <input id="rf" type="number" step="0.001" value="0.04" />
+        <label>Market risk premium, Rm - Rf (decimal)</label>
+        <input id="mrp" type="number" step="0.001" value="0.05" />
+        <label>SMB premium (decimal)</label>
+        <input id="smbp" type="number" step="0.001" value="0.02" />
+        <label>HML premium (decimal)</label>
+        <input id="hmlp" type="number" step="0.001" value="0.03" />
+        <label>Marginal tax rate (decimal)</label>
+        <input id="tax" type="number" step="0.01" value="0.25" />
+      </div>
+      <div>
+        <label>Market factor loading, beta_mkt (levered — do not relever)</label>
+        <input id="bmkt" type="number" step="0.01" value="1.10" />
+        <label>Size factor loading, beta_smb</label>
+        <input id="bsmb" type="number" step="0.01" value="0.40" />
+        <label>Value factor loading, beta_hml</label>
+        <input id="bhml" type="number" step="0.01" value="0.20" />
+        <p class="note">All three loadings come from a time-series regression of the company's own excess returns against the three Fama-French factors — run externally, e.g. against Ken French's published factor data.</p>
+        <label>Market value of equity ($)</label>
+        <input id="mve" type="number" step="1000" value="800000" />
+        <label>Market value of debt ($, include capitalized operating leases)</label>
+        <input id="mvd" type="number" step="1000" value="200000" />
+        <label>Traded-debt YTM, pretax (decimal — required, no synthetic-rating fallback)</label>
+        <input id="cod" type="number" step="0.001" value="0.05" />
+      </div>
+    </div>
+    <button id="run" disabled>Loading Python runtime…</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="card">
+    <strong>Result</strong>
+    <div id="result">Enter inputs and click Compute.</div>
+  </div>
+
+  <div class="card">
+    <strong>Sensitivity (size factor loading × value factor loading)</strong>
+    <div id="sensitivity"></div>
+  </div>
+</main>
+
+<script type="module">
+  import { loadWaccPackage, fetchDataFreshness, pct } from "./shared/wacc-loader.js";
+
+  const ACTIVE_CALCULATOR_NAME = "Calculator 6: Fama-French 3-Factor WACC";
+
+  const statusEl = document.getElementById("status");
+  const runBtn = document.getElementById("run");
+
+  async function renderDataFreshness() {
+    const freshnessEl = document.getElementById("freshness");
+    try {
+      // Only the risk-free rate is relevant here -- this calculator takes
+      // factor loadings and premiums directly, not the bundled industry-beta
+      // table (that's a Calculator 1/5 input, not an FF3 one).
+      const { rfData, rfAge, rfStale } = await fetchDataFreshness();
+
+      freshnessEl.className = rfStale ? "stale" : "ok";
+      freshnessEl.textContent =
+        `Bundled data — risk-free rate: ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
+        (rfStale ? " ⚠ STALE" : "") +
+        `. Industry-beta freshness doesn't apply to this calculator — factor loadings and premiums are supplied directly. ` +
+        `Re-run scripts/update_data.py and commit if the rate is stale — this page never fetches live.`;
+
+      const rfInput = document.getElementById("rf");
+      if (!rfStale && typeof rfData.risk_free_rate === "number") {
+        rfInput.value = rfData.risk_free_rate;
+      }
+    } catch (e) {
+      freshnessEl.className = "stale";
+      freshnessEl.textContent = "⚠ Could not read bundled data freshness — check data/*.json manually.";
+    }
+  }
+
+  async function main() {
+    document.getElementById("calc-badge").textContent = ACTIVE_CALCULATOR_NAME;
+    await renderDataFreshness();
+    statusEl.textContent = "Loading Pyodide…";
+    const pyodide = await loadPyodide();
+    statusEl.textContent = "Loading wacc package…";
+    await loadWaccPackage(pyodide);
+    statusEl.textContent = "Ready.";
+    runBtn.disabled = false;
+    runBtn.textContent = "Compute";
+
+    runBtn.addEventListener("click", () => {
+      const inputs = {
+        rf: parseFloat(document.getElementById("rf").value),
+        mrp: parseFloat(document.getElementById("mrp").value),
+        smbp: parseFloat(document.getElementById("smbp").value),
+        hmlp: parseFloat(document.getElementById("hmlp").value),
+        tax: parseFloat(document.getElementById("tax").value),
+        bmkt: parseFloat(document.getElementById("bmkt").value),
+        bsmb: parseFloat(document.getElementById("bsmb").value),
+        bhml: parseFloat(document.getElementById("bhml").value),
+        mve: parseFloat(document.getElementById("mve").value),
+        mvd: parseFloat(document.getElementById("mvd").value),
+        cod: parseFloat(document.getElementById("cod").value),
+      };
+      pyodide.globals.set("js_inputs", pyodide.toPy(inputs));
+
+      let pyResult;
+      try {
+        pyResult = pyodide.runPython(`
+import json
+from wacc import FamaFrenchWaccInputs, compute_fama_french_wacc, fama_french_wacc_sensitivity
+
+_inputs = js_inputs.to_py() if hasattr(js_inputs, "to_py") else js_inputs
+wi = FamaFrenchWaccInputs(
+    risk_free_rate=_inputs["rf"],
+    market_risk_premium=_inputs["mrp"],
+    smb_premium=_inputs["smbp"],
+    hml_premium=_inputs["hmlp"],
+    beta_mkt=_inputs["bmkt"],
+    beta_smb=_inputs["bsmb"],
+    beta_hml=_inputs["bhml"],
+    tax_rate_marginal=_inputs["tax"],
+    market_value_equity=_inputs["mve"],
+    market_value_debt=_inputs["mvd"],
+    cost_of_debt_pretax=_inputs["cod"],
+)
+result = compute_fama_french_wacc(wi)
+grid = fama_french_wacc_sensitivity(wi)
+json.dumps({
+    "result": {
+        "wacc": result.wacc,
+        "cost_of_equity": result.cost_of_equity,
+        "market_factor_contribution": result.market_factor_contribution,
+        "smb_factor_contribution": result.smb_factor_contribution,
+        "hml_factor_contribution": result.hml_factor_contribution,
+        "cost_of_debt_pretax": result.cost_of_debt_pretax,
+        "cost_of_debt_aftertax": result.cost_of_debt_aftertax,
+        "weight_equity": result.weight_equity,
+        "weight_debt": result.weight_debt,
+    },
+    "grid": grid,
+})
+`);
+      } catch (e) {
+        document.getElementById("result").textContent = "Error: " + e.message;
+        return;
+      }
+      const parsed = JSON.parse(pyResult);
+      renderResult(parsed.result);
+      renderGrid(parsed.grid);
+    });
+  }
+
+  function renderResult(r) {
+    document.getElementById("result").textContent =
+`Method:                  ${ACTIVE_CALCULATOR_NAME}
+WACC:                   ${pct(r.wacc)}
+Cost of equity:          ${pct(r.cost_of_equity)}
+  market factor:         ${pct(r.market_factor_contribution)}
+  SMB (size) factor:     ${pct(r.smb_factor_contribution)}
+  HML (value) factor:    ${pct(r.hml_factor_contribution)}
+Cost of debt, pretax:    ${pct(r.cost_of_debt_pretax)}  (traded-debt YTM, as entered)
+Cost of debt, after-tax: ${pct(r.cost_of_debt_aftertax)}
+Weight equity / debt:    ${pct(r.weight_equity)} / ${pct(r.weight_debt)}  (market value)`;
+  }
+
+  function renderGrid(rows) {
+    const smbs = [...new Set(rows.map(r => r.beta_smb.toFixed(2)))];
+    const hmls = [...new Set(rows.map(r => r.beta_hml.toFixed(2)))];
+    let html = "<table><tr><th>beta_smb \\ beta_hml</th>" + hmls.map(h => `<th>${h}</th>`).join("") + "</tr>";
+    for (const s of smbs) {
+      html += `<tr><th>${s}</th>`;
+      for (const h of hmls) {
+        const cell = rows.find(r => r.beta_smb.toFixed(2) === s && r.beta_hml.toFixed(2) === h);
+        html += `<td>${cell ? pct(cell.wacc) : "—"}</td>`;
+      }
+      html += "</tr>";
+    }
+    html += "</table>";
+    document.getElementById("sensitivity").innerHTML = html;
+  }
+
+  main();
+</script>
+</body>
+</html>
