@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WACC Toolkit — Segment-Level (Sum-of-Parts)</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f5;
+    --fg: #1a1a1a;
+    --card: #ffffff;
+    --border: #d9d9d4;
+    --accent: #2f6f4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15161a; --fg: #e8e8e6; --card: #1e2024; --border: #33353a; --accent: #6fbf94; }
+  }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+  main { max-width: 860px; margin: 0 auto; }
+  a.back { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
+  a.back:hover { text-decoration: underline; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.calc-badge { display: inline-block; background: var(--accent); color: #fff; font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 999px; margin: 0 0 0.6rem 0; }
+  p.sub { color: #888; margin-top: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; }
+  label { display: block; font-size: 0.85rem; margin-bottom: 0.2rem; }
+  input, select { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; margin-bottom: 0.8rem; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: inherit; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  button { background: var(--accent); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+  button.remove { background: transparent; color: #c0392b; border: 1px solid var(--border); padding: 0.35rem 0.6rem; font-size: 0.8rem; }
+  #result { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: 0.5rem; }
+  td, th { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  #status { font-size: 0.8rem; color: #888; }
+  #freshness { font-size: 0.8rem; margin-top: -0.5rem; margin-bottom: 1rem; }
+  #freshness.stale { color: #c0392b; font-weight: 600; }
+  #freshness.ok { color: #888; }
+  .segment-row { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: end; margin-bottom: 0.6rem; }
+  .segment-row label { font-size: 0.75rem; margin-bottom: 0.15rem; }
+  .segment-row input { margin-bottom: 0; }
+  .note { font-size: 0.8rem; color: #888; margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="index.html">&larr; All calculators</a>
+  <h1>WACC Toolkit</h1>
+  <p class="calc-badge" id="calc-badge"></p>
+  <p class="sub">One WACC per business segment, plus a capital-weighted sum-of-parts aggregate — computed entirely in your browser via Pyodide. No data leaves this page. For a conglomerate with genuinely different-risk segments — see the hub page if that's not your case.</p>
+  <div id="freshness"></div>
+
+  <div class="card">
+    <strong>Consolidated (company-level) inputs</strong>
+    <p class="note">Every segment defaults to these values except its own unlevered beta and capital weight — override a segment's tax rate, cost of debt, or capital structure below only if it genuinely has its own disclosed structure (e.g. a ring-fenced project-finance subsidiary). This calculator only exposes the typical case (per-segment beta + weight); use the Python library directly for per-segment overrides.</p>
+    <div class="grid">
+      <div>
+        <label>Risk-free rate (10yr, decimal)</label>
+        <input id="rf" type="number" step="0.001" value="0.04" />
+        <label>Equity risk premium (decimal)</label>
+        <input id="erp" type="number" step="0.001" value="0.05" />
+        <label>Company-level unlevered beta (for the naive single-WACC comparison only — not used by any segment)</label>
+        <input id="companyBeta" type="number" step="0.01" value="1.00" />
+        <label>Marginal tax rate (decimal)</label>
+        <input id="tax" type="number" step="0.01" value="0.25" />
+      </div>
+      <div>
+        <label>Market value of equity ($M)</label>
+        <input id="mve" type="number" step="1" value="800" />
+        <label>Market value of debt ($M, incl. capitalized leases)</label>
+        <input id="mvd" type="number" step="1" value="200" />
+        <label>Interest coverage ratio (EBIT / interest expense)</label>
+        <input id="icr" type="number" step="0.1" value="6.0" />
+        <label>Size premium (decimal, optional)</label>
+        <input id="size" type="number" step="0.001" value="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>Segments</strong>
+    <p class="note">Capital weight can be any consistent unit across segments (revenue, invested capital, EBIT) — it's normalized automatically, so raw dollars work fine.</p>
+    <div class="segment-row" style="font-size:0.75rem; color:#888; margin-bottom:0.2rem;">
+      <div>Name</div><div>Unlevered beta</div><div>Capital weight</div><div></div>
+    </div>
+    <div id="segment-rows"></div>
+    <button class="secondary" id="add-segment" type="button">+ Add segment</button>
+  </div>
+
+  <div class="card">
+    <button id="run" disabled>Loading Python runtime…</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="card">
+    <strong>Result</strong>
+    <div id="result">Enter inputs and click Compute.</div>
+  </div>
+</main>
+
+<script type="module">
+  import { loadWaccPackage, fetchDataFreshness, pct } from "./shared/wacc-loader.js";
+
+  // Single source of truth for the active calculator's name — used for both
+  // the page badge and the result output, so the two can't drift apart.
+  const ACTIVE_CALCULATOR_NAME = "Calculator 2: Segment-Level (Sum-of-Parts) WACC";
+
+  const statusEl = document.getElementById("status");
+  const runBtn = document.getElementById("run");
+  const rowsEl = document.getElementById("segment-rows");
+  let segmentRowCount = 0;
+
+  function addSegmentRow(name, beta, weight) {
+    const id = segmentRowCount++;
+    const row = document.createElement("div");
+    row.className = "segment-row";
+    row.dataset.rowId = id;
+    row.innerHTML = `
+      <input type="text" class="seg-name" value="${name}" />
+      <input type="number" step="0.01" class="seg-beta" value="${beta}" />
+      <input type="number" step="1" class="seg-weight" value="${weight}" />
+      <button class="remove" type="button" title="Remove segment">✕</button>
+    `;
+    row.querySelector(".remove").addEventListener("click", () => row.remove());
+    rowsEl.appendChild(row);
+  }
+
+  // Two starting rows, matching the README's own worked example.
+  addSegmentRow("Regulated Grid", 0.50, 700);
+  addSegmentRow("Merchant Renewables", 1.40, 300);
+
+  document.getElementById("add-segment").addEventListener("click", () => {
+    addSegmentRow("New Segment", 1.00, 100);
+  });
+
+  async function renderDataFreshness() {
+    const freshnessEl = document.getElementById("freshness");
+    try {
+      const { rfData, betaData, rfAge, betaAge, rfStale, betaStale } = await fetchDataFreshness();
+
+      freshnessEl.className = (rfStale || betaStale) ? "stale" : "ok";
+      freshnessEl.textContent =
+        `Bundled data — risk-free rate: ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
+        (rfStale ? " ⚠ STALE" : "") +
+        ` · industry betas: ${betaData._as_of ?? "unknown"} (${betaAge ?? "?"}d old)` +
+        (betaStale ? " ⚠ STALE" : "") +
+        `. This calculator doesn't fetch segment betas for you — pick a comparable pure-play beta per segment yourself. Re-run scripts/update_data.py and commit if either is stale — this page never fetches live.`;
+
+      const rfInput = document.getElementById("rf");
+      if (!rfStale && typeof rfData.risk_free_rate === "number") {
+        rfInput.value = rfData.risk_free_rate;
+      }
+    } catch (e) {
+      freshnessEl.className = "stale";
+      freshnessEl.textContent = "⚠ Could not read bundled data freshness — check data/*.json manually.";
+    }
+  }
+
+  async function main() {
+    document.getElementById("calc-badge").textContent = ACTIVE_CALCULATOR_NAME;
+    await renderDataFreshness();
+    statusEl.textContent = "Loading Pyodide…";
+    const pyodide = await loadPyodide();
+    statusEl.textContent = "Loading wacc package…";
+    await loadWaccPackage(pyodide);
+    statusEl.textContent = "Ready.";
+    runBtn.disabled = false;
+    runBtn.textContent = "Compute";
+
+    runBtn.addEventListener("click", () => {
+      const segments = Array.from(rowsEl.querySelectorAll(".segment-row")).map(row => ({
+        name: row.querySelector(".seg-name").value || "Segment",
+        beta: parseFloat(row.querySelector(".seg-beta").value),
+        weight: parseFloat(row.querySelector(".seg-weight").value),
+      }));
+
+      if (segments.length === 0) {
+        document.getElementById("result").textContent = "Add at least one segment.";
+        return;
+      }
+
+      const inputs = {
+        rf: parseFloat(document.getElementById("rf").value),
+        erp: parseFloat(document.getElementById("erp").value),
+        companyBeta: parseFloat(document.getElementById("companyBeta").value),
+        tax: parseFloat(document.getElementById("tax").value),
+        mve: parseFloat(document.getElementById("mve").value),
+        mvd: parseFloat(document.getElementById("mvd").value),
+        icr: parseFloat(document.getElementById("icr").value),
+        size: parseFloat(document.getElementById("size").value),
+        segments,
+      };
+      pyodide.globals.set("js_inputs", pyodide.toPy(inputs));
+
+      const pyResult = pyodide.runPython(`
+import json
+from wacc import WaccInputs, SegmentOverride, compute_wacc, compute_segment_wacc, weighted_average_wacc
+
+_inputs = js_inputs.to_py() if hasattr(js_inputs, "to_py") else js_inputs
+
+consolidated = WaccInputs(
+    risk_free_rate=_inputs["rf"],
+    equity_risk_premium=_inputs["erp"],
+    unlevered_beta=_inputs["companyBeta"],
+    tax_rate_marginal=_inputs["tax"],
+    market_value_equity=_inputs["mve"],
+    market_value_debt=_inputs["mvd"],
+    interest_coverage_ratio=_inputs["icr"],
+    size_premium=_inputs["size"],
+)
+
+segments = [
+    SegmentOverride(name=s["name"], unlevered_beta=s["beta"], capital_weight=s["weight"])
+    for s in _inputs["segments"]
+]
+
+segment_results = compute_segment_wacc(consolidated, segments)
+sum_of_parts = weighted_average_wacc(segment_results)
+naive = compute_wacc(consolidated)
+
+json.dumps({
+    "segments": [
+        {"name": r.name, "beta": r.result.levered_beta, "weight": r.capital_weight, "wacc": r.result.wacc}
+        for r in segment_results
+    ],
+    "sum_of_parts_wacc": sum_of_parts,
+    "naive_wacc": naive.wacc,
+})
+`);
+      const parsed = JSON.parse(pyResult);
+      renderResult(parsed);
+    });
+  }
+
+  function renderResult(r) {
+    const totalWeight = r.segments.reduce((s, seg) => s + seg.weight, 0);
+    let html = `Method:                 ${ACTIVE_CALCULATOR_NAME}\n\n`;
+    html += "Segment                     Relevered beta    Weight    WACC\n";
+    for (const seg of r.segments) {
+      const weightPct = pct(seg.weight / totalWeight);
+      html += `${seg.name.padEnd(28)} ${seg.beta.toFixed(2).padStart(14)} ${weightPct.padStart(9)} ${pct(seg.wacc).padStart(9)}\n`;
+    }
+    html += `\nSum-of-parts WACC (capital-weighted):  ${pct(r.sum_of_parts_wacc)}\n`;
+    html += `Naive company-level WACC (one blended beta): ${pct(r.naive_wacc)}\n`;
+    const diff = (r.sum_of_parts_wacc - r.naive_wacc) * 100;
+    html += `Difference: ${diff >= 0 ? "+" : ""}${diff.toFixed(2)}pp — `;
+    html += Math.abs(diff) < 0.3
+      ? "segment business risk isn't differentiated enough here to matter; the naive company-level number is fine."
+      : "segments diverge enough that the sum-of-parts number is the more defensible rate for valuing any one segment in isolation.";
+    document.getElementById("result").textContent = html;
+  }
+
+  main();
+</script>
+</body>
+</html>

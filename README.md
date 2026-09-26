@@ -15,7 +15,7 @@ Python library and as a static browser page (via
 | **Function** | `compute_wacc(WaccInputs(...))` | `compute_segment_wacc(consolidated, [SegmentOverride(...), ...])` + `weighted_average_wacc(...)` | `compute_regression_wacc(RegressionWaccInputs(...))` | `compute_build_up_wacc(BuildUpWaccInputs(...))` |
 | **Module** | `wacc/calculator.py` (+ `beta.py`, `cost_of_debt.py`) | `wacc/segment.py` (wraps calculator 1 — same core math, run once per segment) | `wacc/regression_beta.py` (independent — does not relever the beta, does not use `beta.py` or `cost_of_debt.py`) | `wacc/build_up.py` (independent — no beta at all; reuses only `cost_of_debt.py`'s synthetic rating) |
 | **Output** | One WACC + a beta×ERP sensitivity grid | One WACC per segment + a capital-weighted sum-of-parts aggregate, for comparison against calculator 1's naive company-level number | One WACC + a regression-beta×ERP sensitivity grid | One WACC + a size-premium×company-specific-premium sensitivity grid |
-| **Browser page** | `calculator-bottom-up-beta.html` | None yet — Python-library only | `calculator-regression-beta.html` | `calculator-build-up.html` |
+| **Browser page** | `calculator-bottom-up-beta.html` | `calculator-segment-level.html` (typical case only — see Known limitations) | `calculator-regression-beta.html` | `calculator-build-up.html` |
 | **Full docs** | § "Calculator 1" below | § "Calculator 2" below | § "Calculator 3" below | § "Calculator 4" below |
 
 Not sure which applies? Read `finance/methods/wacc-methodology-reference.md`
@@ -55,6 +55,9 @@ web/
                          mirrors the "Which calculator do I need?" table above
   calculator-bottom-up-beta.html
                         Calculator 1's static Pyodide page
+  calculator-segment-level.html
+                        Calculator 2's static Pyodide page (typical case only --
+                        per-segment beta/weight; see Known limitations)
   calculator-regression-beta.html
                         Calculator 3's static Pyodide page
   calculator-build-up.html
@@ -329,10 +332,14 @@ does that yet.
 - Sensitivity grids are two-axis only (beta × ERP for calculators 1 and 3,
   size premium × company-specific premium for calculator 4); leverage and
   cost-of-debt sensitivity are natural next axes for any of them.
-- Segment-level WACC (`wacc/segment.py`) is Python-library only — listed on
-  the hub page (`web/index.html`) but has no calculator page of its own yet,
-  and it does not fetch segment betas for you; you still have to pick a
-  comparable pure-play beta per segment (same manual step
+- `calculator-segment-level.html` only exposes the *typical* case: per-segment
+  unlevered beta and capital weight, everything else (tax rate, cost of debt,
+  capital structure) defaulting to the consolidated company. `SegmentOverride`
+  supports overriding any of those per segment (e.g. a ring-fenced
+  project-finance subsidiary with its own disclosed structure) — that case is
+  Python-library only, use `compute_segment_wacc` directly.
+- No calculator fetches segment betas for you; you still have to pick a
+  comparable pure-play beta per segment yourself (same manual step
   `industry_betas.json` automates at the whole-company level, not yet
   extended to segments).
 
