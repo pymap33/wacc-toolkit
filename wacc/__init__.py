@@ -12,6 +12,12 @@ from .regression_beta import (
     compute_regression_wacc,
     regression_wacc_sensitivity,
 )
+from .build_up import (
+    BuildUpWaccInputs,
+    BuildUpWaccResult,
+    compute_build_up_wacc,
+    build_up_wacc_sensitivity,
+)
 
 __all__ = [
     "relever_beta",
@@ -28,4 +34,8 @@ __all__ = [
     "RegressionWaccInputs",
     "compute_regression_wacc",
     "regression_wacc_sensitivity",
+    "BuildUpWaccInputs",
+    "BuildUpWaccResult",
+    "compute_build_up_wacc",
+    "build_up_wacc_sensitivity",
 ]

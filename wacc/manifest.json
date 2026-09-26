@@ -3,6 +3,7 @@
   "modules": [
     "__init__.py",
     "beta.py",
+    "build_up.py",
     "calculator.py",
     "cost_of_debt.py",
     "regression_beta.py",

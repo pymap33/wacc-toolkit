@@ -1,44 +1,48 @@
 # WACC Toolkit
 
 A small toolkit of WACC calculation methods that fix the shortcuts most free
-WACC calculators take. Three calculators today (a fourth, Private-Company
-Build-Up, still to come), each solving a different problem — pick the one
-that matches your situation, not just the first one you find. Runnable both
-as a plain Python library and as a static browser page (via
+WACC calculators take. Four calculators — the full set this toolkit was
+scoped for — each solving a different problem; pick the one that matches
+your situation, not just the first one you find. Runnable both as a plain
+Python library and as a static browser page (via
 [Pyodide](https://pyodide.org/)) with no server and no data leaving the page.
 
 ## Which calculator do I need?
 
-| | Calculator 1: Bottom-Up Beta / Synthetic-Rating WACC | Calculator 2: Segment-Level (Sum-of-Parts) WACC | Calculator 3: Regression-Beta / Liquid Large-Cap WACC |
-|---|---|---|---|
-| **Use when** | Valuing a whole company as a single unit; thinly-traded, recently-listed, or volatile names where a regression beta is noisy | The company has genuinely different-risk segments (a regulated utility arm vs. a merchant/growth arm) and one blended number would misprice at least one of them | A liquid large-cap with a stable capital structure and a long trading history, where a regression beta is reliable and traded-debt YTM is directly observable |
-| **Function** | `compute_wacc(WaccInputs(...))` | `compute_segment_wacc(consolidated, [SegmentOverride(...), ...])` + `weighted_average_wacc(...)` | `compute_regression_wacc(RegressionWaccInputs(...))` |
-| **Module** | `wacc/calculator.py` (+ `beta.py`, `cost_of_debt.py`) | `wacc/segment.py` (wraps calculator 1 — same core math, run once per segment) | `wacc/regression_beta.py` (independent — does not relever the beta, does not use `beta.py` or `cost_of_debt.py`) |
-| **Output** | One WACC + a beta×ERP sensitivity grid | One WACC per segment + a capital-weighted sum-of-parts aggregate, for comparison against calculator 1's naive company-level number | One WACC + a regression-beta×ERP sensitivity grid |
-| **Browser page** | `calculator-bottom-up-beta.html` | None yet — Python-library only | `calculator-regression-beta.html` |
-| **Full docs** | § "Calculator 1" below | § "Calculator 2" below | § "Calculator 3" below |
+| | Calculator 1: Bottom-Up Beta / Synthetic-Rating WACC | Calculator 2: Segment-Level (Sum-of-Parts) WACC | Calculator 3: Regression-Beta / Liquid Large-Cap WACC | Calculator 4: Private-Company Build-Up Method WACC |
+|---|---|---|---|---|
+| **Use when** | Valuing a whole company as a single unit; thinly-traded, recently-listed, or volatile names where a regression beta is noisy | The company has genuinely different-risk segments (a regulated utility arm vs. a merchant/growth arm) and one blended number would misprice at least one of them | A liquid large-cap with a stable capital structure and a long trading history, where a regression beta is reliable and traded-debt YTM is directly observable | A private company with no market price at all (litigation, ESOP, small-business sale) — no beta to estimate |
+| **Function** | `compute_wacc(WaccInputs(...))` | `compute_segment_wacc(consolidated, [SegmentOverride(...), ...])` + `weighted_average_wacc(...)` | `compute_regression_wacc(RegressionWaccInputs(...))` | `compute_build_up_wacc(BuildUpWaccInputs(...))` |
+| **Module** | `wacc/calculator.py` (+ `beta.py`, `cost_of_debt.py`) | `wacc/segment.py` (wraps calculator 1 — same core math, run once per segment) | `wacc/regression_beta.py` (independent — does not relever the beta, does not use `beta.py` or `cost_of_debt.py`) | `wacc/build_up.py` (independent — no beta at all; reuses only `cost_of_debt.py`'s synthetic rating) |
+| **Output** | One WACC + a beta×ERP sensitivity grid | One WACC per segment + a capital-weighted sum-of-parts aggregate, for comparison against calculator 1's naive company-level number | One WACC + a regression-beta×ERP sensitivity grid | One WACC + a size-premium×company-specific-premium sensitivity grid |
+| **Browser page** | `calculator-bottom-up-beta.html` | None yet — Python-library only | `calculator-regression-beta.html` | `calculator-build-up.html` |
+| **Full docs** | § "Calculator 1" below | § "Calculator 2" below | § "Calculator 3" below | § "Calculator 4" below |
 
 Not sure which applies? Read `finance/methods/wacc-methodology-reference.md`
 (if you have access to the KB this toolkit was built for) — it has the full
 decision matrix this table is a summary of. Calculators 1 and 2 share the
 same underlying cost-of-equity/cost-of-debt method (calculator 2 only
-changes *how many times* and *with what inputs* it runs); calculator 3 uses
-a genuinely different method (regression beta used directly, no relevering;
-directly observed traded-debt YTM instead of a synthetic rating) — see its
-own section for why.
+changes *how many times* and *with what inputs* it runs); calculators 3 and
+4 each use a genuinely different method (calculator 3: regression beta used
+directly, no relevering, directly observed traded-debt YTM; calculator 4: a
+build-up stack instead of CAPM, no beta at all, book/negotiated-value
+weights instead of market value) — see their own sections for why.
 
 ## Layout
 
 ```
 wacc/                 Core library (pure Python, no dependencies)
   beta.py             Relever/unlever (Hamada) -- shared by calculators 1 and 2
-  cost_of_debt.py      Synthetic rating -> spread lookup -- shared by calculators 1 and 2
+  cost_of_debt.py      Synthetic rating -> spread lookup -- shared by calculators 1, 2, and 4
   calculator.py        Calculator 1 (whole-company) -- WaccInputs / compute_wacc / wacc_sensitivity
   segment.py            Calculator 2 (segment-level) -- SegmentOverride /
                         compute_segment_wacc / weighted_average_wacc
   regression_beta.py    Calculator 3 (regression-beta) -- RegressionWaccInputs /
                         compute_regression_wacc / regression_wacc_sensitivity
                         (independent of beta.py / cost_of_debt.py -- see its own section)
+  build_up.py            Calculator 4 (private-company build-up) -- BuildUpWaccInputs /
+                        compute_build_up_wacc / build_up_wacc_sensitivity
+                        (no beta at all; reuses only cost_of_debt.py -- see its own section)
 data/
   synthetic_ratings.json   Interest-coverage-ratio -> rating -> spread table
   industry_betas.json      Sample industry unlevered betas (placeholder — see below)
@@ -53,12 +57,15 @@ web/
                         Calculator 1's static Pyodide page
   calculator-regression-beta.html
                         Calculator 3's static Pyodide page
+  calculator-build-up.html
+                        Calculator 4's static Pyodide page
   shared/wacc-loader.js  Pyodide/manifest loading logic shared by every
                          calculator page (factored out 2026-09-27)
 tests/
   test_calculator.py    Calculator 1 unit tests, no network required
   test_segment.py       Calculator 2 unit tests, no network required
   test_regression_beta.py  Calculator 3 unit tests, no network required
+  test_build_up.py      Calculator 4 unit tests, no network required
   test_manifest.py      Guards web/'s generated file list against drift (§ below)
 ```
 
@@ -209,6 +216,63 @@ all optional (default 0), same as calculator 1 — a size premium is usually
 not applicable for a liquid large-cap, but the field is kept for consistency
 across calculators.
 
+## Calculator 4: Private-Company Build-Up Method WACC
+
+### What this does differently
+
+There is no beta here at all — not a bottom-up industry beta (calculator 1),
+not a regression beta (calculator 3). A private company with no market
+price has no return series to derive one from. The build-up method replaces
+CAPM's single `beta x ERP` term with a stack of separately-justified premia:
+
+```
+cost of equity = risk-free rate
+               + equity risk premium
+               + industry risk premium (optional)
+               + size premium
+               + company-specific risk premium
+```
+
+Each premium is independently sourced (size premium typically from a
+published size-premium study; company-specific risk from a qualitative
+assessment of key-person dependence, customer concentration, etc.) rather
+than one beta standing in for all of them. This is also the only calculator
+in this toolkit that takes **book value or a negotiated transaction value**
+instead of market value for equity and debt — there isn't a market price to
+observe.
+
+Cost of debt still supports the same two paths as calculator 1 (a directly
+observed rate — here more likely a lender term sheet than a traded YTM — or
+a synthetic rating from interest coverage), since interest coverage is
+observable from financials even without a market price for equity or debt.
+
+### Running calculator 4
+
+```python
+from wacc import BuildUpWaccInputs, compute_build_up_wacc, build_up_wacc_sensitivity
+
+inputs = BuildUpWaccInputs(
+    risk_free_rate=0.04,
+    equity_risk_premium=0.05,
+    size_premium=0.03,                    # e.g. from a Duff & Phelps / Kroll study
+    company_specific_risk_premium=0.04,   # qualitative -- key-person risk, customer concentration, etc.
+    tax_rate_marginal=0.25,
+    equity_value=800_000.0,               # book value or negotiated transaction value, NOT market value
+    debt_value=200_000.0,
+    cost_of_debt_pretax=0.08,             # e.g. a lender term sheet rate -- or use interest_coverage_ratio instead
+)
+
+result = compute_build_up_wacc(inputs)
+print(result.wacc)
+
+grid = build_up_wacc_sensitivity(inputs)  # size-premium x company-specific-premium grid -- there's no beta to grid against
+```
+
+`industry_risk_premium`, `preferred_value`, and `preferred_dividend_yield`
+are all optional (default 0). If `cost_of_debt_pretax` is omitted, pass
+`interest_coverage_ratio` instead to derive a synthetic rating the same way
+calculator 1 does.
+
 ## Running the tests
 
 ```
@@ -221,6 +285,7 @@ Or individually, without pytest (each file is plain-assert, runnable directly):
 python tests/test_calculator.py
 python tests/test_segment.py
 python tests/test_regression_beta.py
+python tests/test_build_up.py
 python tests/test_manifest.py
 ```
 
@@ -261,8 +326,9 @@ does that yet.
   trusting it unattended (e.g., in a scheduled CI job).
 - Not yet wired into a scheduled job — still a manual run + commit.
 - No multi-currency / cross-border WACC handling for multinationals.
-- Sensitivity grid is beta × ERP only; leverage and cost-of-debt sensitivity
-  are natural next axes.
+- Sensitivity grids are two-axis only (beta × ERP for calculators 1 and 3,
+  size premium × company-specific premium for calculator 4); leverage and
+  cost-of-debt sensitivity are natural next axes for any of them.
 - Segment-level WACC (`wacc/segment.py`) is Python-library only — listed on
   the hub page (`web/index.html`) but has no calculator page of its own yet,
   and it does not fetch segment betas for you; you still have to pick a
@@ -270,7 +336,7 @@ does that yet.
   `industry_betas.json` automates at the whole-company level, not yet
   extended to segments).
 
-## Adding a future calculator (4, ...)
+## Adding a future calculator (5, ...)
 
 Each calculator gets its own numbered `## Calculator N: <Descriptive Name>`
 section (not a generic subsection folded into an existing one), following
