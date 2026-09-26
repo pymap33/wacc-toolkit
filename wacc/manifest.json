@@ -1,0 +1,15 @@
+{
+  "generated": "2026-09-26",
+  "modules": [
+    "__init__.py",
+    "beta.py",
+    "calculator.py",
+    "cost_of_debt.py",
+    "segment.py"
+  ],
+  "data": [
+    "industry_betas.json",
+    "risk_free_rate.json",
+    "synthetic_ratings.json"
+  ]
+}

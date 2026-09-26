@@ -207,14 +207,16 @@ the pattern above:
 2. New logic goes in its own `wacc/<name>.py` module; reuse `beta.py` and
    `cost_of_debt.py` rather than re-deriving cost-of-equity/cost-of-debt
    math, the way `segment.py` reuses `calculator.py`.
-3. **If the new module is imported by `wacc/__init__.py`, add it to
-   `web/index.html`'s `files` array in the same commit.** This exact
-   omission broke the live browser page on 2026-09-09 (see git history,
-   commit `6ac4baf`) — the Python test suite can't catch it because it
-   never touches the browser loader, so this has to be a manual checklist
-   item, not something you'll get a red test for.
-4. Add `tests/test_<name>.py`, same plain-assert style as the existing two
-   test files (no pytest dependency).
+3. **Run `python scripts/generate_manifest.py` and commit the regenerated
+   `wacc/manifest.json`.** `web/index.html` fetches its file list from this
+   manifest instead of a hardcoded array — added 2026-09-26 specifically so
+   this step can't be silently skipped the way it was on 2026-09-09 (see git
+   history, commit `6ac4baf`), which broke the entire live browser page, not
+   just the new calculator. `tests/test_manifest.py` fails loudly if you add
+   a module or data file and forget this step.
+4. Add `tests/test_<name>.py`, same plain-assert style as the existing test
+   files (no pytest dependency required to read them, though the suite runs
+   under pytest).
 5. Check `finance/methods/wacc-methodology-reference.md` (if you have KB
    access) for whether the new calculator's decision-matrix row already
    exists there — update it if the new tool changes which method applies
