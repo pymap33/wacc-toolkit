@@ -40,9 +40,13 @@ scripts/
                         Not wired into CI yet; run manually and commit the diff.
                         `pip install -r scripts/requirements.txt` first.
 web/
-  index.html            Static Pyodide page — loads the wacc/ package into
-                         the browser's virtual filesystem and runs it client-side
-                         (calculator 1 only — see Known limitations)
+  index.html            Hub page — links to each calculator's own page,
+                         mirrors the "Which calculator do I need?" table above
+  calculator-bottom-up-beta.html
+                        Calculator 1's static Pyodide page (see Known limitations —
+                        calculator 2 has no page yet)
+  shared/wacc-loader.js  Pyodide/manifest loading logic shared by every
+                         calculator page (factored out 2026-09-27)
 tests/
   test_calculator.py    Calculator 1 unit tests, no network required
   test_segment.py       Calculator 2 unit tests, no network required
@@ -153,8 +157,10 @@ python tests/test_segment.py
 
 ## Running the browser page
 
-`web/index.html` fetches the `wacc/*.py` source files and `data/*.json` by
-relative path, so it must be served (not opened via `file://`):
+`web/index.html` is the hub — it links to each calculator's own page.
+Calculator pages fetch the `wacc/*.py` source files and `data/*.json` by
+relative path via `web/shared/wacc-loader.js`, so they must be served (not
+opened via `file://`):
 
 ```
 python -m http.server 8000
@@ -188,11 +194,12 @@ does that yet.
 - No multi-currency / cross-border WACC handling for multinationals.
 - Sensitivity grid is beta × ERP only; leverage and cost-of-debt sensitivity
   are natural next axes.
-- Segment-level WACC (`wacc/segment.py`) is Python-library only — not yet
-  wired into `web/index.html`'s browser UI, and it does not fetch segment
-  betas for you; you still have to pick a comparable pure-play beta per
-  segment (same manual step `industry_betas.json` automates at the
-  whole-company level, not yet extended to segments).
+- Segment-level WACC (`wacc/segment.py`) is Python-library only — listed on
+  the hub page (`web/index.html`) but has no calculator page of its own yet,
+  and it does not fetch segment betas for you; you still have to pick a
+  comparable pure-play beta per segment (same manual step
+  `industry_betas.json` automates at the whole-company level, not yet
+  extended to segments).
 
 ## Adding a future calculator (3, 4, ...)
 
@@ -208,16 +215,23 @@ the pattern above:
    `cost_of_debt.py` rather than re-deriving cost-of-equity/cost-of-debt
    math, the way `segment.py` reuses `calculator.py`.
 3. **Run `python scripts/generate_manifest.py` and commit the regenerated
-   `wacc/manifest.json`.** `web/index.html` fetches its file list from this
-   manifest instead of a hardcoded array — added 2026-09-26 specifically so
-   this step can't be silently skipped the way it was on 2026-09-09 (see git
-   history, commit `6ac4baf`), which broke the entire live browser page, not
-   just the new calculator. `tests/test_manifest.py` fails loudly if you add
-   a module or data file and forget this step.
-4. Add `tests/test_<name>.py`, same plain-assert style as the existing test
+   `wacc/manifest.json`.** Every calculator page fetches its file list from
+   this manifest instead of a hardcoded array — added 2026-09-26 specifically
+   so this step can't be silently skipped the way it was on 2026-09-09 (see
+   git history, commit `6ac4baf`), which broke the entire live browser page,
+   not just the new calculator. `tests/test_manifest.py` fails loudly if you
+   add a module or data file and forget this step.
+4. **Give the new calculator its own page**, `web/calculator-<name>.html`,
+   built on `web/shared/wacc-loader.js` the same way
+   `calculator-bottom-up-beta.html` is (see that file for the pattern) — add
+   a `<link rel="back">`-style link back to `index.html`, and add a card for
+   it on the hub page (`web/index.html`) with a `LIVE` status badge. Don't
+   add a form to an existing calculator's page; each method has different
+   inputs.
+5. Add `tests/test_<name>.py`, same plain-assert style as the existing test
    files (no pytest dependency required to read them, though the suite runs
    under pytest).
-5. Check `finance/methods/wacc-methodology-reference.md` (if you have KB
+6. Check `finance/methods/wacc-methodology-reference.md` (if you have KB
    access) for whether the new calculator's decision-matrix row already
    exists there — update it if the new tool changes which method applies
    when.
