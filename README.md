@@ -490,7 +490,7 @@ does that yet.
   workbook layout still shifts occasionally between updates — re-check the
   parsed output after any run that logs an unexpected column set before
   trusting it unattended (e.g., in a scheduled CI job).
-- Not yet wired into a scheduled job — still a manual run + commit.
+- The risk-free rate is wired into a weekday GitHub Actions cron (`.github/workflows/update-risk-free-rate.yml`); industry betas still require a manual `update_data.py` run + commit (they move ~annually and the parser needs a human check after Damodaran layout shifts — see the caution above).
 - No multi-currency / cross-border WACC handling for multinationals.
 - Sensitivity grids are two-axis only (beta × ERP for calculators 1 and 3,
   size premium × company-specific premium for calculator 4, correlation
