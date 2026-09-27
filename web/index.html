@@ -33,6 +33,9 @@
   a.calc-link { color: var(--accent); font-weight: 600; text-decoration: none; }
   a.calc-link:hover { text-decoration: underline; }
   .use-when { color: var(--muted); font-size: 0.9rem; }
+  #rf-freshness { font-size: 0.85rem; margin: 0.75rem 0 1.25rem 0; padding: 0.6rem 0.9rem; border-radius: 8px; background: var(--card); border: 1px solid var(--border); }
+  #rf-freshness.stale { color: #c0392b; font-weight: 600; border-color: #c0392b; }
+  #rf-freshness.ok { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -41,6 +44,8 @@
   <p class="sub">Six WACC estimation methods, one per situation. Pick by "use when," not by whichever loads first — see
     <a class="calc-link" href="https://github.com/pymap33/wacc-toolkit/blob/master/README.md#which-calculator-do-i-need" target="_blank" rel="noopener">the full decision table</a>
     if none of these look right for your case.</p>
+
+  <div id="rf-freshness">Loading current risk-free rate…</div>
 
   <div class="card available">
     <span class="status live">LIVE — try it</span>
@@ -78,5 +83,23 @@
     <p class="use-when"><strong>Use when:</strong> a liquid public company with a real size or value/growth tilt — a single market beta (Calculator 3) misses risk the size (SMB) and value (HML) factors price directly.</p>
   </div>
 </main>
+
+<script type="module">
+  import { fetchDataFreshness, pct } from "./shared/wacc-loader.js";
+
+  const el = document.getElementById("rf-freshness");
+  try {
+    const { rfData, rfAge, rfStale } = await fetchDataFreshness();
+    el.className = rfStale ? "stale" : "ok";
+    el.textContent =
+      `Current bundled risk-free rate (all 6 calculators): ${typeof rfData.risk_free_rate === "number" ? pct(rfData.risk_free_rate) : "unknown"}` +
+      ` as of ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
+      (rfStale ? " ⚠ STALE" : "") +
+      `. Refreshed automatically on weekdays; each calculator prefills this value and shows the same freshness check on its own page.`;
+  } catch (e) {
+    el.className = "stale";
+    el.textContent = "⚠ Could not read the bundled risk-free rate — check data/risk_free_rate.json manually.";
+  }
+</script>
 </body>
 </html>

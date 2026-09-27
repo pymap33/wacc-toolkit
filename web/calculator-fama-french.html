@@ -112,7 +112,7 @@
 
       freshnessEl.className = rfStale ? "stale" : "ok";
       freshnessEl.textContent =
-        `Bundled data — risk-free rate: ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
+        `Bundled data — risk-free rate: ${typeof rfData.risk_free_rate === "number" ? pct(rfData.risk_free_rate) : "unknown"} as of ${rfData._as_of ?? "unknown"} (${rfAge ?? "?"}d old)` +
         (rfStale ? " ⚠ STALE" : "") +
         `. Industry-beta freshness doesn't apply to this calculator — factor loadings and premiums are supplied directly. ` +
         `Re-run scripts/update_data.py and commit if the rate is stale — this page never fetches live.`;
