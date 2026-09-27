@@ -1,6 +1,6 @@
 {
   "_source": "https://pages.stern.nyu.edu/~adamodar/pc/datasets/betas.xls",
-  "_as_of": "2026-09-06",
+  "_as_of": "2026-09-26",
   "industries": {
     "Advertising": {
       "unlevered_beta": 0.93,

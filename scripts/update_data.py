@@ -16,6 +16,7 @@ alone cannot read it), requests (dev-only; not part of the Pyodide app).
 
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import json
 from pathlib import Path
@@ -90,6 +91,20 @@ def update_risk_free_rate() -> None:
 
 
 if __name__ == "__main__":
-    update_industry_betas()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--rate-only",
+        action="store_true",
+        help=(
+            "Refresh only risk_free_rate.json, skipping industry_betas.json. "
+            "Used by the weekday GitHub Actions cron (.github/workflows/"
+            "update-risk-free-rate.yml) — industry betas update ~annually and "
+            "Damodaran's occasional layout shifts shouldn't risk breaking an "
+            "unattended rate refresh."
+        ),
+    )
+    args = parser.parse_args()
+    if not args.rate_only:
+        update_industry_betas()
     update_risk_free_rate()
     print("Data refresh complete.")

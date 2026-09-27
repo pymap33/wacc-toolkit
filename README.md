@@ -62,8 +62,14 @@ data/
   industry_betas.json      Sample industry unlevered betas (placeholder — see below)
 scripts/
   update_data.py       Refreshes data/*.json from public sources (Damodaran, Treasury).
-                        Not wired into CI yet; run manually and commit the diff.
-                        `pip install -r scripts/requirements.txt` first.
+                        Run manually (`pip install -r scripts/requirements.txt` first)
+                        for a full refresh (both files), or pass --rate-only to refresh
+                        just risk_free_rate.json. The risk-free rate is also refreshed
+                        automatically on weekdays by
+                        .github/workflows/update-risk-free-rate.yml (commits only when
+                        the fetched value actually changed). industry_betas.json still
+                        has no automated refresh -- betas move ~annually and Damodaran's
+                        layout shifts occasionally, so that one stays manual by design.
 web/
   index.html            Hub page — links to each calculator's own page,
                          mirrors the "Which calculator do I need?" table above

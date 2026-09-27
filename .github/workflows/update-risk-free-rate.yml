@@ -1,0 +1,42 @@
+name: Update risk-free rate
+
+# Weekday-only: Treasury only publishes on trading days, so a weekend/holiday
+# run would just re-fetch the prior business day's rate and no-op the commit.
+# 23:30 UTC = 6:30pm EST / 7:30pm EDT -- comfortably after Treasury's ~6pm ET
+# daily posting in either DST state, so no seasonal cron flip is needed here
+# (unlike the UTC-only cron jobs tracked in the KB's MEMORY.md tripwires).
+on:
+  schedule:
+    - cron: "30 23 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-rate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pandas requests
+
+      - name: Refresh risk-free rate only
+        run: python scripts/update_data.py --rate-only
+
+      - name: Commit if the rate changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data/risk_free_rate.json; then
+            echo "No change in risk-free rate; nothing to commit."
+          else
+            git add data/risk_free_rate.json
+            git commit -m "Auto-update risk-free rate ($(date -u +%Y-%m-%d))"
+            git push
+          fi
